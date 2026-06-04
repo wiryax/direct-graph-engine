@@ -1,23 +1,16 @@
-package DirectGraphEngine
+package dge
 
 type GraphContext struct {
-	rState    *RuntimeState
-	logger    GraphLogger
-	connector *Connector
+	rState  *RuntimeState
+	logger  GraphLogger
+	storage *Storage
 }
 
-func NewGraphContext(gLog GraphLogger, rState *RuntimeState) *GraphContext {
+func NewGraphContext(gLog GraphLogger, rState *RuntimeState, storage *Storage) *GraphContext {
 	return &GraphContext{
-		logger: gLog,
-		rState: rState,
-	}
-}
-
-func NewGraphContextWithConnector(gLog GraphLogger, rState *RuntimeState, connector *Connector) *GraphContext {
-	return &GraphContext{
-		logger:    gLog,
-		rState:    rState,
-		connector: connector,
+		logger:  gLog,
+		rState:  rState,
+		storage: storage,
 	}
 }
 
@@ -29,14 +22,14 @@ func (gCtx *GraphContext) SetVariable(key, value string) {
 	gCtx.rState.SetVariable(key, value)
 }
 
-func (gCtx *GraphContext) GetConnector(key string) (any, error) {
-	return gCtx.connector.GetConnector(key)
-}
-
-func (gCtx *GraphContext) SetConnector(key string, conn any) {
-	gCtx.connector.SetConnector(key, conn)
-}
-
 func (gCtx *GraphContext) Log(et EvenType, logLv LogLevel, msg, vId, gId string) {
 	gCtx.logger.FlushLog(et, logLv, msg, vId, gId)
+}
+
+func (gCtx *GraphContext) SetTabularStorage(key string, data Tabular) {
+	gCtx.storage.SetTabular(key, data)
+}
+
+func (gCtx *GraphContext) GetTabularStorage(key string) (Tabular, error) {
+	return gCtx.storage.GetTabular(key)
 }

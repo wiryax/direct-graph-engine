@@ -1,4 +1,4 @@
-module github.com/wiryax/DirectGraphEngine
+module github.com/wiryax/direct-graph-engine
 
 go 1.23.4
 

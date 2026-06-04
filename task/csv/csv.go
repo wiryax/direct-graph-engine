@@ -3,10 +3,9 @@ package csv
 import (
 	"encoding/csv"
 	"fmt"
-	"io"
 	"strings"
 
-	engine "github.com/wiryax/DirectGraphEngine"
+	engine "github.com/wiryax/direct-graph-engine"
 )
 
 type Clause struct {
@@ -16,131 +15,83 @@ type Clause struct {
 }
 
 type CsvFilter struct {
-	connectorId string
-	clauses     []Clause
+	storageId string
+	clauses   []Clause
 }
 
 func NewCsvFilter(connectorId string, clauses ...Clause) *CsvFilter {
 	return &CsvFilter{
-		clauses:     clauses,
-		connectorId: connectorId,
+		clauses:   clauses,
+		storageId: connectorId,
 	}
 }
 
 func (cf *CsvFilter) Execute(gCtx *engine.GraphContext) error {
-	conn, err := gCtx.GetConnector(cf.connectorId)
+	t, err := gCtx.GetTabularStorage(cf.storageId)
 	if err != nil {
 		return err
 	}
 
-	mockCsvConn, ok := conn.(*CSVConnector)
-	if !ok {
-		return fmt.Errorf("unable casting connector")
+	for c := range cf.clauses {
+		i := t.GetColIndex(cf.clauses[c].column)
+		if i == -1 {
+			return fmt.Errorf("column with key %s not found", cf.clauses[c].column)
+		}
+		cf.clauses[c].index = i
 	}
-	mockCsvConn.Filter(cf.clauses...)
+
+	fn := func(v []engine.Variable) bool {
+		for _, c := range cf.clauses {
+			if string(v[c.index].GetRaw()) != c.value {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	tResult := t.FilterTabular(cf.storageId, fn)
+
+	gCtx.SetTabularStorage(cf.storageId, tResult)
 	return nil
 }
 
 type MockCsvReader struct {
 	b,
-	connId string
+	storageId string
 }
 
-func NewMockCsvReader(connId, content string) *MockCsvReader {
+func NewMockCsvReader(storageId, content string) *MockCsvReader {
 	return &MockCsvReader{
-		connId: connId,
-		b:      content,
+		storageId: storageId,
+		b:         content,
 	}
 }
 
 func (cr *MockCsvReader) Execute(gCtx *engine.GraphContext) error {
-	conn, err := gCtx.GetConnector(cr.connId)
+	csvReader := csv.NewReader(strings.NewReader(string(cr.b)))
+
+	records, err := csvReader.ReadAll()
 	if err != nil {
 		return err
 	}
 
-	mockCsvConn, ok := conn.(*CSVConnector)
-	if !ok {
-		return fmt.Errorf("unable to casting connector")
-	}
+	columns := records[0]
+	rows := records[1:]
 
-	mockCsvConn.LoadData(cr.b)
-	return nil
-}
+	t := engine.MakeTabular(columns)
 
-type CSVConnector struct {
-	column []string
-	row    [][]string
-}
+	for _, r := range rows {
+		var tempRow []engine.Variable
 
-func (c *CSVConnector) LoadData(data string) error {
-	r := csv.NewReader(strings.NewReader(data))
-
-	var (
-		err error
-	)
-
-	c.column, err = r.Read()
-	if err != nil {
-		return err
-	}
-
-	for {
-		record, err := r.Read()
-		if err == io.EOF {
-			break
+		for _, record := range r {
+			tempRow = append(tempRow, engine.ParseVariable([]byte(record)))
 		}
 
-		if err != nil {
-			return err
-		}
-
-		c.row = append(c.row, record)
+		t.AddRow(tempRow...)
 	}
+
+	gCtx.SetTabularStorage(cr.storageId, *t)
 
 	return nil
-}
-
-func (c *CSVConnector) Filter(clauses ...Clause) {
-	for i := range clauses {
-		for j, column := range c.column {
-			if column == clauses[i].column {
-				clauses[i].index = j
-				break
-			}
-		}
-	}
-
-	tempResult := make([][]string, 0)
-
-	for _, r := range c.row {
-		flag := true
-		for _, c := range clauses {
-			if r[c.index] != c.value {
-				flag = false
-				break
-			}
-		}
-
-		if flag {
-			tempResult = append(tempResult, r)
-		}
-	}
-
-	c.row = tempResult
-}
-
-func (c *CSVConnector) GetRows() [][]string {
-	return c.row
-}
-
-func (c *CSVConnector) String() string {
-	sb := strings.Builder{}
-	sb.WriteString(strings.Join(c.column, "|") + "\n")
-
-	for _, r := range c.row {
-		sb.WriteString(strings.Join(r, "|") + "\n")
-	}
-
-	return sb.String()
 }

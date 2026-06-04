@@ -1,8 +1,17 @@
-package DirectGraphEngine
+package dge
 
 import (
 	"fmt"
 )
+
+type Task interface {
+	Execute(gCtx *GraphContext) error
+}
+
+type Graph interface {
+	Run()
+	RunWithContext(gCtx *GraphContext)
+}
 
 type state int
 
@@ -15,7 +24,7 @@ const (
 )
 
 type Edge struct {
-	from, to *Vertex
+	from, to *BasicVertex
 	exp      expression
 	lOp      tokenType
 	pConst   state
@@ -25,11 +34,11 @@ func (e *Edge) evalConst() bool {
 	return e.from.state == e.pConst
 }
 
-type Task interface {
-	Execute(gCtx *GraphContext) error
+type Vertex interface {
+	ExecuteTask(gCtx *GraphContext) error
 }
 
-type Vertex struct {
+type BasicVertex struct {
 	id                    string
 	state                 state
 	task                  Task
@@ -37,57 +46,58 @@ type Vertex struct {
 	in, out               []*Edge
 }
 
-func (v *Vertex) String() string {
+func (v *BasicVertex) String() string {
 	return fmt.Sprintf("id=%s state=%d pendingEdge=%d failEdge=%d,", v.id, v.state, v.pendingEdge, v.failEdge)
 }
 
-func (v *Vertex) GetId() string {
+func (v *BasicVertex) GetId() string {
 	return v.id
 }
 
-func (v *Vertex) SetState(s state) {
+func (v *BasicVertex) SetState(s state) {
 	v.state = s
 }
 
-func (v *Vertex) GetState() state {
+func (v *BasicVertex) GetState() state {
 	return v.state
 }
 
-func (v *Vertex) ExecuteTask(gCtx *GraphContext) error {
+func (v *BasicVertex) ExecuteTask(gCtx *GraphContext) error {
 	return v.task.Execute(gCtx)
 }
 
-type Graph struct {
+type BasicGraph struct {
 	id     string
-	vertex []*Vertex
+	vertex []*BasicVertex
 }
 
-func NewGraph(id string) *Graph {
-	return &Graph{
+func NewGraph(id string) *BasicGraph {
+	return &BasicGraph{
 		id: id,
 	}
 }
 
-func (g *Graph) RunWithContext(gCtx *GraphContext) {
+func (g *BasicGraph) RunWithContext(gCtx *GraphContext) {
 	g.run(gCtx)
 }
 
-func (g *Graph) Run() {
+func (g *BasicGraph) Run() {
 	rState := &RuntimeState{
 		variable: make(map[string]string),
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState)
+	storage := NewStorage()
 
+	gCtx := NewGraphContext(NewLogger(nil), rState, storage)
 	g.run(gCtx)
 }
 
-func (g *Graph) run(gCtx *GraphContext) {
+func (g *BasicGraph) run(gCtx *GraphContext) {
 	if gCtx == nil {
 		panic("graph context cannot nil")
 	}
 
-	var queue []*Vertex
+	var queue []*BasicVertex
 	for _, v := range g.vertex {
 		if v.pendingEdge == 0 && v.failEdge == 0 {
 			queue = append(queue, v)
@@ -97,7 +107,7 @@ func (g *Graph) run(gCtx *GraphContext) {
 	g.execute(gCtx, queue)
 }
 
-func (g *Graph) execute(gCtx *GraphContext, queue []*Vertex) {
+func (g *BasicGraph) execute(gCtx *GraphContext, queue []*BasicVertex) {
 	for {
 		if len(queue) == 0 {
 			break
@@ -121,7 +131,7 @@ func (g *Graph) execute(gCtx *GraphContext, queue []*Vertex) {
 	}
 }
 
-func (g *Graph) getReadyVertex(gCtx *GraphContext, v *Vertex, queue *[]*Vertex) {
+func (g *BasicGraph) getReadyVertex(gCtx *GraphContext, v *BasicVertex, queue *[]*BasicVertex) {
 	for _, child := range v.out {
 		if !child.evalConst() && child.lOp == ExpAnd {
 			child.to.failEdge++
@@ -148,11 +158,11 @@ func (g *Graph) getReadyVertex(gCtx *GraphContext, v *Vertex, queue *[]*Vertex) 
 	}
 }
 
-func (g *Graph) AddVertex(vertex ...*Vertex) {
+func (g *BasicGraph) AddVertex(vertex ...*BasicVertex) {
 	g.vertex = append(g.vertex, vertex...)
 }
 
-func (g *Graph) Connect(from, to *Vertex, op state, lOp tokenType, tk []token) {
+func (g *BasicGraph) Connect(from, to *BasicVertex, op state, lOp tokenType, tk []token) {
 	edge := &Edge{
 		from:   from,
 		to:     to,
@@ -169,8 +179,8 @@ func (g *Graph) Connect(from, to *Vertex, op state, lOp tokenType, tk []token) {
 	from.out = append(from.out, edge)
 }
 
-func (g *Graph) Add(id string, task Task) *Vertex {
-	v := &Vertex{
+func (g *BasicGraph) Add(id string, task Task) *BasicVertex {
+	v := &BasicVertex{
 		id:    id,
 		task:  task,
 		state: Pending,
@@ -180,7 +190,7 @@ func (g *Graph) Add(id string, task Task) *Vertex {
 	return v
 }
 
-func (g *Graph) GetVertex(id string) *Vertex {
+func (g *BasicGraph) GetVertex(id string) *BasicVertex {
 	for i := range g.vertex {
 		if g.vertex[i].id == id {
 			return g.vertex[i]

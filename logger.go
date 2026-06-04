@@ -1,4 +1,4 @@
-package DirectGraphEngine
+package dge
 
 import (
 	"fmt"

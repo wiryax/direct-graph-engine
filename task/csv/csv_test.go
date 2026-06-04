@@ -1,26 +1,24 @@
 package csv
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
 
-	engine "github.com/wiryax/DirectGraphEngine"
+	engine "github.com/wiryax/direct-graph-engine"
 )
 
 func TestCsvFilterWorkflow(t *testing.T) {
 	logger := engine.NewLogger(os.Stdout)
-	mockCsvConnKey := "mockCsvConn"
+	mockCsvStorageId := "mockCsvConn"
 	rState := engine.NewRuntimeState(make(map[string]string))
-	connector := engine.NewConnector(make(map[string]any))
-	gCtx := engine.NewGraphContextWithConnector(logger, rState, connector)
-	gCtx.SetConnector(mockCsvConnKey, &CSVConnector{column: make([]string, 0), row: make([][]string, 0)})
-
+	storage := engine.NewStorage()
+	gCtx := engine.NewGraphContext(logger, rState, storage)
 	graph := engine.NewGraph("TestCsvWorkflow")
 
-	csvReader := graph.Add("Csv Reader", NewMockCsvReader(mockCsvConnKey, "first_name,middle_name,last_name\nwirya,muhammad,nugraha\nnugraha,muhammad,wirya"))
-	csvFilter := graph.Add("Csv Filter", NewCsvFilter(mockCsvConnKey,
+	csvReader := graph.Add("Csv Reader", NewMockCsvReader(mockCsvStorageId, "first_name,middle_name,last_name\nwirya,muhammad,nugraha\nnugraha,muhammad,wirya"))
+
+	csvFilter := graph.Add("Csv Filter", NewCsvFilter(mockCsvStorageId,
 		Clause{
 			column: "first_name",
 			value:  "wirya",
@@ -37,21 +35,18 @@ func TestCsvFilterWorkflow(t *testing.T) {
 
 	graph.RunWithContext(gCtx)
 
-	expectedResult := [][]string{
-		{"wirya", "muhammad", "nugraha"},
-	}
+	expectedTabular := engine.MakeTabular([]string{"first_name", "middle_name", "last_name"})
+	expectedTabular.AddRow(
+		engine.ParseVariable([]byte("wirya")),
+		engine.ParseVariable([]byte("muhammad")),
+		engine.ParseVariable([]byte("nugraha")))
 
-	conn, err := gCtx.GetConnector(mockCsvConnKey)
+	tResult, err := gCtx.GetTabularStorage(mockCsvStorageId)
 	if err != nil {
-		t.Fatalf("unexpected error occur, %v", err)
+		t.Fatalf("unexpected error %v", tResult)
 	}
 
-	mockCsvConn, ok := conn.(*CSVConnector)
-	if !ok {
-		t.Fatalf("unable casting connector")
-	}
-
-	if !reflect.DeepEqual(fmt.Sprintf("%v", expectedResult), fmt.Sprintf("%v", mockCsvConn.GetRows())) {
-		t.Errorf("unexpected result. want %v got %v", expectedResult, mockCsvConn.GetRows())
+	if !reflect.DeepEqual(tResult, *expectedTabular) {
+		t.Errorf("unexpected result. want %v got %v", *expectedTabular, tResult)
 	}
 }

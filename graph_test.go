@@ -1,4 +1,4 @@
-package DirectGraphEngine
+package dge
 
 import (
 	"errors"
@@ -28,16 +28,16 @@ func (m *MockTask) Execute(gCtx *GraphContext) error {
 	return m.task(gCtx)
 }
 
-func newVertex(id string, task func(gCtx *GraphContext) error) *Vertex {
+func newVertex(id string, task func(gCtx *GraphContext) error) *BasicVertex {
 	mockTask := NewMockTask(task)
-	return &Vertex{id: id, task: mockTask, state: Pending}
+	return &BasicVertex{id: id, task: mockTask, state: Pending}
 }
 
-func newEdge(from, to *Vertex) *Edge {
+func newEdge(from, to *BasicVertex) *Edge {
 	return &Edge{from: from, to: to}
 }
 
-func newRuntimeState(state map[string]*Vertex) *RuntimeState {
+func newRuntimeState(state map[string]*BasicVertex) *RuntimeState {
 	return &RuntimeState{state: state}
 }
 
@@ -81,7 +81,7 @@ func TestGraphWorkflow(t *testing.T) {
 		preRuntimeState,
 		postRuntimeState *RuntimeState
 		preVertex,
-		postVertex []*Vertex
+		postVertex []*BasicVertex
 	}{
 		{
 			title: "TestSingleParentDeps_SuccessCase",
@@ -106,36 +106,36 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 1,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
@@ -165,36 +165,36 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 1,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vB",
 					state:       Skipped,
 					pendingEdge: 0,
@@ -236,42 +236,42 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state: make(map[string]*Vertex),
+				state: make(map[string]*BasicVertex),
 				variable: map[string]string{
 					"isValidDate": time.Now().Format("02-01-2006"),
 					"currentDate": time.Now().Format("02-01-2006"),
 				},
-				vState: make(map[*Vertex]state),
+				vState: make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state: make(map[string]*Vertex),
+				state: make(map[string]*BasicVertex),
 				variable: map[string]string{
 					"isValidDate": time.Now().Format("02-01-2006"),
 					"currentDate": time.Now().Format("02-01-2006"),
 				},
-				vState: make(map[*Vertex]state),
+				vState: make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 1,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
@@ -313,42 +313,42 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state: make(map[string]*Vertex),
+				state: make(map[string]*BasicVertex),
 				variable: map[string]string{
 					"isValidDate": "02-06-2026",
 					"currentDate": time.Now().Format("01-02-2006"),
 				},
-				vState: make(map[*Vertex]state),
+				vState: make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state: make(map[string]*Vertex),
+				state: make(map[string]*BasicVertex),
 				variable: map[string]string{
 					"isValidDate": "02-06-2026",
 					"currentDate": time.Now().Format("01-02-2006"),
 				},
-				vState: make(map[*Vertex]state),
+				vState: make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 1,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vB",
 					state:       Skipped,
 					pendingEdge: 0,
@@ -397,58 +397,58 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Pending,
 					pendingEdge: 3,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vC",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vD",
 					state:       Success,
 					pendingEdge: 0,
@@ -497,58 +497,58 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Pending,
 					pendingEdge: 3,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vC",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vD",
 					state:       Success,
 					pendingEdge: 0,
@@ -597,64 +597,64 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state: make(map[string]*Vertex),
+				state: make(map[string]*BasicVertex),
 				variable: map[string]string{
 					"var1": "1",
 					"var2": "1",
 				},
-				vState: make(map[*Vertex]state),
+				vState: make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state: make(map[string]*Vertex),
+				state: make(map[string]*BasicVertex),
 				variable: map[string]string{
 					"var1": "1",
 					"var2": "1",
 				},
-				vState: make(map[*Vertex]state),
+				vState: make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Pending,
 					pendingEdge: 3,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vC",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
 				},
-				&Vertex{
+				&BasicVertex{
 					id:          "vD",
 					state:       Success,
 					pendingEdge: 0,
@@ -715,75 +715,75 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vE",
 					state:       Pending,
 					pendingEdge: 2,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vF",
 					state:       Pending,
 					pendingEdge: 2,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vE",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vF",
 					state:       Success,
 					pendingEdge: 0,
@@ -844,75 +844,75 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vE",
 					state:       Pending,
 					pendingEdge: 2,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vF",
 					state:       Pending,
 					pendingEdge: 2,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vE",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vF",
 					state:       Skipped,
 					pendingEdge: 0,
@@ -973,75 +973,75 @@ func TestGraphWorkflow(t *testing.T) {
 				log: nil,
 			},
 			preRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
 			postRuntimeState: &RuntimeState{
-				state:    make(map[string]*Vertex),
+				state:    make(map[string]*BasicVertex),
 				variable: make(map[string]string),
-				vState:   make(map[*Vertex]state),
+				vState:   make(map[*BasicVertex]state),
 			},
-			preVertex: []*Vertex{
-				&Vertex{
+			preVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Pending,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vE",
 					state:       Pending,
 					pendingEdge: 2,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vF",
 					state:       Pending,
 					pendingEdge: 2,
 					failEdge:    0,
 				},
 			},
-			postVertex: []*Vertex{
-				&Vertex{
+			postVertex: []*BasicVertex{
+				&BasicVertex{
 					id:          "vA",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vB",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vC",
 					state:       Fail,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vD",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vE",
 					state:       Success,
 					pendingEdge: 0,
 					failEdge:    0,
-				}, &Vertex{
+				}, &BasicVertex{
 					id:          "vF",
 					state:       Skipped,
 					pendingEdge: 0,
@@ -1054,7 +1054,7 @@ func TestGraphWorkflow(t *testing.T) {
 	for _, tc := range testCase {
 		t.Run(tc.title, func(t *testing.T) {
 			g := NewGraph(tc.title)
-			gCtx := NewGraphContext(NewLogger(os.Stdout), tc.preRuntimeState)
+			gCtx := NewGraphContext(NewLogger(os.Stdout), tc.preRuntimeState, nil)
 
 			for _, v := range tc.tGraph.tVertex {
 				g.Add(v.id, v.task)
@@ -1072,22 +1072,22 @@ func TestGraphWorkflow(t *testing.T) {
 			}
 
 			//assert pre test
-			if !cmp.Equal(gCtx.rState, tc.preRuntimeState, cmp.AllowUnexported(RuntimeState{}, Vertex{}, Edge{}, expression{}, token{})) {
+			if !cmp.Equal(gCtx.rState, tc.preRuntimeState, cmp.AllowUnexported(RuntimeState{}, BasicVertex{}, Edge{}, expression{}, token{})) {
 				t.Errorf("unexpected pre-state test result.\n want\t%+v,\n got\t%+v", tc.preRuntimeState, gCtx.rState)
 			}
 
-			if !cmp.Equal(g.vertex, tc.preVertex, cmp.AllowUnexported(Vertex{}), cmpopts.IgnoreFields(Vertex{}, "in", "out", "task")) {
+			if !cmp.Equal(g.vertex, tc.preVertex, cmp.AllowUnexported(BasicVertex{}), cmpopts.IgnoreFields(BasicVertex{}, "in", "out", "task")) {
 				t.Errorf("unexpected pre-vertex result.\n want\t%+v,\n got\t%+v", tc.preVertex, g.vertex)
 			}
 
 			g.RunWithContext(gCtx)
 
 			//assert post test
-			if !cmp.Equal(gCtx.rState, tc.postRuntimeState, cmp.AllowUnexported(RuntimeState{}, Vertex{}, Edge{}, expression{}, token{})) {
+			if !cmp.Equal(gCtx.rState, tc.postRuntimeState, cmp.AllowUnexported(RuntimeState{}, BasicVertex{}, Edge{}, expression{}, token{})) {
 				t.Errorf("unexpected post-state test result.\n want\t%+v,\n got\t%+v", tc.postRuntimeState, gCtx.rState)
 			}
 
-			if !cmp.Equal(g.vertex, tc.postVertex, cmp.AllowUnexported(Vertex{}), cmpopts.IgnoreFields(Vertex{}, "in", "out", "task")) {
+			if !cmp.Equal(g.vertex, tc.postVertex, cmp.AllowUnexported(BasicVertex{}), cmpopts.IgnoreFields(BasicVertex{}, "in", "out", "task")) {
 				t.Errorf("unexpected post-vertex result.\n want\t%+v,\n got\t%+v", tc.postVertex, g.vertex)
 			}
 		})

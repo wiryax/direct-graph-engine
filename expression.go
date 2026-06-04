@@ -1,4 +1,4 @@
-package DirectGraphEngine
+package dge
 
 import (
 	"fmt"
@@ -178,9 +178,9 @@ func evaluate(gCtx *GraphContext, queue []token) expressionState {
 }
 
 type RuntimeState struct {
-	state    map[string]*Vertex
+	state    map[string]*BasicVertex
 	variable map[string]string
-	vState   map[*Vertex]state
+	vState   map[*BasicVertex]state
 }
 
 func NewRuntimeState(variable map[string]string) *RuntimeState {

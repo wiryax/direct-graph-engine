@@ -1,4 +1,4 @@
-package DirectGraphEngine
+package dge
 
 import (
 	"testing"
@@ -24,7 +24,7 @@ func TestAndOpExpression_PositiveCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState)
+	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {
@@ -52,7 +52,7 @@ func TestAndOpExpression_NegativeCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState)
+	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != False {
@@ -80,7 +80,7 @@ func TestOrOpExpression_PositiveCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState)
+	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {
@@ -112,7 +112,7 @@ func TestOrOpExpression_NegativeCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState)
+	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {
@@ -144,7 +144,7 @@ func TestComplexExpression_WithoutParentness(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState)
+	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {
