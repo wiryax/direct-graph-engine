@@ -1,6 +1,7 @@
 package dge
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -34,7 +35,7 @@ type Blob struct {
 }
 
 type Variable struct {
-	code int
+	code VariableType
 	raw  []byte
 }
 
@@ -48,7 +49,7 @@ func (v *Variable) GetRaw() []byte {
 
 func ParseVariable(b []byte) Variable {
 	return Variable{
-		code: int(VRaw),
+		code: VRaw,
 		raw:  b,
 	}
 }
@@ -95,6 +96,22 @@ func (t *Tabular) FilterTabular(key string, fn func(v []Variable) bool) Tabular 
 		rows:   temp,
 		column: t.column,
 	}
+}
+
+func (t *Tabular) AddColumn(fn func(rows []Variable) []Variable, c ...string) error {
+	t.column = append(t.column, c...)
+	cLen := len(t.column)
+	for i, r := range t.rows {
+		result := fn(r)
+		if result == nil {
+			continue
+		}
+		if len(result) != cLen {
+			return errors.New("un-match rows with column length")
+		}
+		t.rows[i] = result
+	}
+	return nil
 }
 
 type Storage struct {
