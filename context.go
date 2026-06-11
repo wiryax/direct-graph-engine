@@ -33,3 +33,7 @@ func (gCtx *GraphContext) SetTabularStorage(key string, data Tabular) {
 func (gCtx *GraphContext) GetTabularStorage(key string) (Tabular, error) {
 	return gCtx.storage.GetTabular(key)
 }
+
+func (gCtx *GraphContext) GetTabularBlob(key string) (Blob, error) {
+	return gCtx.storage.GetBlob(key)
+}

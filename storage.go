@@ -167,17 +167,23 @@ func (s *Storage) GetTabular(key string) (Tabular, error) {
 	return t.tabular, nil
 }
 
-func (s *Storage) SetBlob(key string, data []byte) {
+func (s *Storage) SetBlob(key string, data Blob) {
 	s.item[key] = StorageItem{
 		key:   key,
 		sType: TypeBlob,
-		blob: Blob{
-			code: 0,
-			raw:  data,
-		},
+		blob:  data,
 	}
 }
 
-func (s *Storage) GetBlob(key string) []byte {
-	return s.item[key].blob.raw
+func (s *Storage) GetBlob(key string) (Blob, error) {
+	si, ok := s.item[key]
+	if !ok {
+		return Blob{}, fmt.Errorf("cannot find storage item with key %s", key)
+	}
+
+	if si.sType != TypeBlob {
+		return Blob{}, fmt.Errorf("storage item with key %s are not blob type", key)
+
+	}
+	return si.blob, nil
 }
