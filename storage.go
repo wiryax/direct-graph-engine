@@ -34,6 +34,21 @@ type Blob struct {
 	raw  []byte
 }
 
+func NewBlob(code int, data []byte) Blob {
+	return Blob{
+		code: code,
+		raw:  data,
+	}
+}
+
+func (b *Blob) GetRaw() []byte {
+	return b.raw
+}
+
+func (b *Blob) GetBlobCode() int {
+	return b.code
+}
+
 type Variable struct {
 	code VariableType
 	raw  []byte
