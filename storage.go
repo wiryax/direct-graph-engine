@@ -98,7 +98,7 @@ func (t *Tabular) FilterTabular(key string, fn func(v []Variable) bool) Tabular 
 	}
 }
 
-func (t *Tabular) AddColumn(fn func(rows []Variable) []Variable, c ...string) error {
+func (t *Tabular) AddColumn(fn func(rows []Variable) [][]Variable, c ...string) error {
 	t.column = append(t.column, c...)
 	cLen := len(t.column)
 	for i, r := range t.rows {
@@ -106,12 +106,34 @@ func (t *Tabular) AddColumn(fn func(rows []Variable) []Variable, c ...string) er
 		if result == nil {
 			continue
 		}
-		if len(result) != cLen {
-			return errors.New("un-match rows with column length")
+
+		for _, nr := range result {
+			if len(nr) != cLen {
+				return errors.New("un-match rows with column length")
+			}
+			t.rows[i] = nr
 		}
-		t.rows[i] = result
+
 	}
 	return nil
+}
+
+func (t *Tabular) Join(r Tabular, fn func(rows []Variable) [][]Variable) (Tabular, error) {
+	result := Tabular{
+		rows:   [][]Variable{},
+		column: append(t.column, r.column...),
+	}
+
+	for _, r := range t.rows {
+		jRows := fn(r)
+		if jRows == nil {
+			return Tabular{}, fmt.Errorf("something wrong")
+		}
+
+		result.rows = append(result.rows, jRows...)
+	}
+
+	return result, nil
 }
 
 type Storage struct {
