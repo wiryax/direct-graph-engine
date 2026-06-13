@@ -237,10 +237,7 @@ func TestJoinTabular_WithEmptyData(t *testing.T) {
 		column: []string{"a"},
 	}
 
-	result := Tabular{
-		rows:   [][]Variable{},
-		column: []string{"a"},
-	}
+	result := Tabular{}
 
 	target := Tabular{
 		rows: [][]Variable{{{
@@ -256,8 +253,8 @@ func TestJoinTabular_WithEmptyData(t *testing.T) {
 	result, err := result.Join(target, func(rows []Variable) [][]Variable {
 		var temp [][]Variable
 		for _, r := range target.GetAllRows() {
-			rows = append(rows, r...)
-			temp = append(temp, rows)
+			newR := append(rows, r...)
+			temp = append(temp, newR)
 		}
 		return temp
 	})

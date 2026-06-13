@@ -132,7 +132,7 @@ func (t *Tabular) GetAllRows() [][]Variable {
 	return temp
 }
 
-func (t *Tabular) GetAllColums() []string {
+func (t *Tabular) GetAllColumns() []string {
 	temp := make([]string, len(t.column))
 	if copy(temp, t.column) != len(temp) {
 		return nil
@@ -189,8 +189,16 @@ func (t *Tabular) AddColumn(fn func(rows []Variable) [][]Variable, c ...string) 
 
 func (t *Tabular) Join(r Tabular, fn func(rows []Variable) [][]Variable) (Tabular, error) {
 	result := Tabular{
-		rows:   [][]Variable{},
 		column: append(t.column, r.column...),
+	}
+
+	if len(t.rows) == 0 {
+		jRows := fn(nil)
+		if jRows == nil {
+			return Tabular{}, fmt.Errorf("something wrong")
+		}
+		result.rows = append(result.rows, jRows...)
+		return result, nil
 	}
 
 	for _, r := range t.rows {
