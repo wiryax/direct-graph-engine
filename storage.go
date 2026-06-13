@@ -132,6 +132,14 @@ func (t *Tabular) GetAllRows() [][]Variable {
 	return temp
 }
 
+func (t *Tabular) GetAllColums() []string {
+	temp := make([]string, len(t.column))
+	if copy(temp, t.column) != len(temp) {
+		return nil
+	}
+	return temp
+}
+
 func (t *Tabular) FilterTabular(key string, fn func(v []Variable) bool) Tabular {
 	var temp [][]Variable
 	for i := range t.rows {
