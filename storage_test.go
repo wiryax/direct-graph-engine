@@ -45,6 +45,34 @@ func TestAddTabularCols(t *testing.T) {
 	}
 }
 
+func TestAddColsOnEmptyTabular(t *testing.T) {
+	expected := MakeTabular(nil)
+	expected.column = append(expected.column, "A")
+	expected.AddRow(Variable{
+		code: VString,
+		raw:  []byte("A"),
+	})
+
+	result := MakeTabular(nil)
+	err := result.AddColumn(func(rows []Variable) [][]Variable {
+		var temp [][]Variable
+		rows = append(rows, Variable{
+			code: VString,
+			raw:  []byte("A"),
+		})
+		temp = append(temp, rows)
+		return temp
+	}, "A")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("unexpected result. want %v, got %v", expected, result)
+	}
+}
+
 func TestAddTabularWithDifferentLength(t *testing.T) {
 	expected := MakeTabular([]string{"A", "B", "C", "D"})
 	expected.AddRow(makeBulkVars(VString, []byte("A"), []byte("B"), []byte("C"), []byte("D"))...)

@@ -116,6 +116,19 @@ func (t *Tabular) FilterTabular(key string, fn func(v []Variable) bool) Tabular 
 func (t *Tabular) AddColumn(fn func(rows []Variable) [][]Variable, c ...string) error {
 	t.column = append(t.column, c...)
 	cLen := len(t.column)
+
+	if len(t.rows) == 0 {
+		result := fn(nil)
+
+		for _, nr := range result {
+			if len(nr) != cLen {
+				return errors.New("un-match rows with column length")
+			}
+			t.rows = append(t.rows, nr)
+		}
+		return nil
+	}
+
 	for i, r := range t.rows {
 		result := fn(r)
 		if result == nil {
