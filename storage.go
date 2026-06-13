@@ -1,8 +1,11 @@
 package dge
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"strings"
+	"text/tabwriter"
 )
 
 type StorageType int
@@ -76,9 +79,31 @@ type Tabular struct {
 
 func MakeTabular(column []string) *Tabular {
 	return &Tabular{
-		rows:   make([][]Variable, 0),
+		rows:   [][]Variable{},
 		column: column,
 	}
+}
+
+func (t *Tabular) String() string {
+	var buff bytes.Buffer
+	w := tabwriter.NewWriter(&buff, 1, 1, 3, ' ', 0)
+
+	if len(t.column) > 0 {
+		fmt.Fprintln(w, strings.Join(t.column, "\t"))
+	}
+
+	for _, row := range t.rows {
+		for j, cell := range row {
+			w.Write([]byte(cell.GetRaw()))
+			if j < len(row)-1 {
+				w.Write([]byte("\t"))
+			}
+		}
+		w.Write([]byte("\n"))
+	}
+
+	w.Flush()
+	return "\n" + buff.String() + "\n"
 }
 
 func (t *Tabular) AddRow(v ...Variable) error {
@@ -97,6 +122,14 @@ func (t *Tabular) GetColIndex(key string) int {
 	}
 
 	return -1
+}
+
+func (t *Tabular) GetAllRows() [][]Variable {
+	temp := make([][]Variable, len(t.rows))
+	if copy(temp, t.rows) != len(temp) {
+		return nil
+	}
+	return temp
 }
 
 func (t *Tabular) FilterTabular(key string, fn func(v []Variable) bool) Tabular {

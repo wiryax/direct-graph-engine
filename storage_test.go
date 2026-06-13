@@ -13,6 +13,105 @@ func makeBulkVars(vType VariableType, rawData ...[]byte) []Variable {
 	return r
 }
 
+func TestMakeTabular(t *testing.T) {
+	tabular := *MakeTabular(nil)
+	err := tabular.AddColumn(func(rows []Variable) [][]Variable {
+		return nil
+	}, "a")
+	if err != nil {
+		t.Fatalf("unexpected err on Step 1: %v", err)
+	}
+
+	if !reflect.DeepEqual(tabular, Tabular{
+		rows:   [][]Variable{},
+		column: []string{"a"},
+	}) {
+		t.Fatalf("unexpected result of step 1. got %v, want %v", tabular, Tabular{
+			rows:   nil,
+			column: []string{"a"},
+		})
+	}
+
+	err = tabular.AddRow(ParseVariable([]byte("a1")))
+	err = tabular.AddRow(ParseVariable([]byte("a2")))
+	if err != nil {
+		t.Fatalf("unexpected err on step 2: %v", err)
+	}
+
+	if !reflect.DeepEqual(tabular, Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("a1"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("a2"),
+		}}},
+		column: []string{"a"},
+	}) {
+		t.Fatalf("unexpected result of step 2. got %v, want %v", tabular, Tabular{
+			rows: [][]Variable{{{
+				code: VString,
+				raw:  []byte("a1"),
+			}}, {{
+				code: VString,
+				raw:  []byte("a2"),
+			}}},
+			column: []string{"a"},
+		})
+	}
+
+	newColData, i := []string{
+		"b1",
+		"b2",
+		"b3",
+	}, 0
+	err = tabular.AddColumn(func(rows []Variable) [][]Variable {
+		var temp [][]Variable
+		v := ParseVariable([]byte(newColData[i]))
+		rows = append(rows, v)
+		temp = append(temp, rows)
+		i++
+		return temp
+	}, "b")
+	if err != nil {
+		t.Fatalf("unexpected err on Step 3: %v", err)
+	}
+
+	if !reflect.DeepEqual(tabular, Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("a1"),
+		}, {
+			code: VRaw,
+			raw:  []byte("b1"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("a2"),
+		}, {
+			code: VRaw,
+			raw:  []byte("b2"),
+		}}},
+		column: []string{"a", "b"},
+	}) {
+		t.Fatalf("unexpected result of step 3. got %v, want %v", tabular, Tabular{
+			rows: [][]Variable{{{
+				code: VRaw,
+				raw:  []byte("a1"),
+			}, {
+				code: VRaw,
+				raw:  []byte("b1"),
+			}}, {{
+				code: VRaw,
+				raw:  []byte("a2"),
+			}, {
+				code: VRaw,
+				raw:  []byte("b2"),
+			}}},
+			column: []string{"a", "b"},
+		})
+	}
+}
+
 func TestAddTabularCols(t *testing.T) {
 	expected := MakeTabular([]string{"A", "B", "C", "D"})
 	err := expected.AddRow(makeBulkVars(VString, []byte("A"), []byte("B"), []byte("C"), []byte("D"))...)
