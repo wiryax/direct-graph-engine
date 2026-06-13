@@ -224,3 +224,49 @@ func TestJoinTabular(t *testing.T) {
 		t.Errorf("unexpected result. want %v, got %v", expected, jT)
 	}
 }
+
+func TestJoinTabular_WithEmptyData(t *testing.T) {
+	expected := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("a1"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("a2"),
+		}}},
+		column: []string{"a"},
+	}
+
+	result := Tabular{
+		rows:   [][]Variable{},
+		column: []string{"a"},
+	}
+
+	target := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("a1"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("a2"),
+		}}},
+		column: []string{"a"},
+	}
+
+	result, err := result.Join(target, func(rows []Variable) [][]Variable {
+		var temp [][]Variable
+		for _, r := range target.GetAllRows() {
+			rows = append(rows, r...)
+			temp = append(temp, rows)
+		}
+		return temp
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("unexpected result. want %v, got %v", expected.String(), result.String())
+	}
+}
