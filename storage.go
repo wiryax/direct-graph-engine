@@ -170,20 +170,20 @@ func (t *Tabular) AddColumn(fn func(rows []Variable) [][]Variable, c ...string) 
 		return nil
 	}
 
-	for i, r := range t.rows {
+	var temp [][]Variable
+	for _, r := range t.rows {
 		result := fn(r)
 		if result == nil {
 			continue
 		}
-
-		for _, nr := range result {
-			if len(nr) != cLen {
-				return errors.New("un-match rows with column length")
+		for _, c := range result {
+			if len(c) != cLen {
+				return fmt.Errorf("un-match column length %d", cLen)
 			}
-			t.rows[i] = nr
 		}
-
+		temp = append(temp, result...)
 	}
+	t.rows = temp
 	return nil
 }
 
