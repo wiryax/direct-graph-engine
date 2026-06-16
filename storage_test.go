@@ -267,3 +267,216 @@ func TestJoinTabular_WithEmptyData(t *testing.T) {
 		t.Errorf("unexpected result. want %v, got %v", expected.String(), result.String())
 	}
 }
+
+func TestMergeTabular(t *testing.T) {
+	expected := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("1"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("2"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("3"),
+		}}},
+		column: []string{"a"},
+	}
+
+	result := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("1"),
+		}}},
+		column: []string{"a"},
+	}
+
+	target := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("2"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("3"),
+		}}},
+		column: []string{"a"},
+	}
+
+	newT, err := result.Merge(target)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", newT)
+	}
+
+	if !reflect.DeepEqual(newT, expected) {
+		t.Errorf("unexpected result. want %s, got %s", expected.String(), newT.String())
+	}
+}
+
+func TestMergeTabularWithMultipleColumn(t *testing.T) {
+	expected := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("1"),
+		}, {
+			code: VRaw,
+			raw:  []byte("a"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("2"),
+		}, {
+			code: VRaw,
+			raw:  []byte("a"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("3"),
+		}, {
+			code: VRaw,
+			raw:  []byte("a"),
+		}}},
+		column: []string{"a", "b"},
+	}
+
+	result := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("1"),
+		}, {
+			code: VRaw,
+			raw:  []byte("a"),
+		}}},
+		column: []string{"a", "b"},
+	}
+
+	target := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("2"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("3"),
+		}}},
+		column: []string{"a"},
+	}
+
+	newT, err := result.Merge(target)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", newT)
+	}
+
+	if !reflect.DeepEqual(newT, expected) {
+		t.Errorf("unexpected result. want %s, got %s", expected.String(), newT.String())
+	}
+}
+
+func TestMergeTabularWithNewColumn(t *testing.T) {
+	expected := Tabular{
+		rows: [][]Variable{
+			{
+				{
+					code: VRaw,
+					raw:  []byte("1"),
+				}, {
+					code: VRaw,
+					raw:  []byte("a"),
+				}, {
+					code: VRaw,
+					raw:  []byte("2"),
+				},
+			}, {
+				{
+					code: VRaw,
+					raw:  []byte("2"),
+				}, {
+					code: VRaw,
+					raw:  []byte("a"),
+				}, {
+					code: VRaw,
+					raw:  []byte("2"),
+				},
+			}, {
+				{
+					code: VRaw,
+					raw:  []byte("3"),
+				}, {
+					code: VRaw,
+					raw:  []byte("a"),
+				}, {
+					code: VRaw,
+					raw:  []byte("2"),
+				},
+			}, {
+				{
+					code: VRaw,
+					raw:  []byte("1"),
+				}, {
+					code: VRaw,
+					raw:  []byte("a"),
+				}, {
+					code: VRaw,
+					raw:  []byte("3"),
+				},
+			}, {
+				{
+					code: VRaw,
+					raw:  []byte("2"),
+				}, {
+					code: VRaw,
+					raw:  []byte("a"),
+				}, {
+					code: VRaw,
+					raw:  []byte("3"),
+				},
+			}, {
+				{
+					code: VRaw,
+					raw:  []byte("3"),
+				}, {
+					code: VRaw,
+					raw:  []byte("a"),
+				}, {
+					code: VRaw,
+					raw:  []byte("3"),
+				},
+			},
+		},
+		column: []string{"a", "b", "c"},
+	}
+
+	result := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("1"),
+		}, {
+			code: VRaw,
+			raw:  []byte("a"),
+		}}},
+		column: []string{"a", "b"},
+	}
+
+	target := Tabular{
+		rows: [][]Variable{{{
+			code: VRaw,
+			raw:  []byte("2"),
+		}, {
+			code: VRaw,
+			raw:  []byte("2"),
+		}}, {{
+			code: VRaw,
+			raw:  []byte("3"),
+		}, {
+			code: VRaw,
+			raw:  []byte("3"),
+		}}},
+		column: []string{"a", "c"},
+	}
+
+	newT, err := result.Merge(target)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", newT)
+	}
+
+	if !reflect.DeepEqual(newT, expected) {
+		t.Errorf("unexpected result. want %s, got %s", expected.String(), newT.String())
+	}
+	t.Logf("result %s", newT.String())
+}

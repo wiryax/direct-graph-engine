@@ -213,6 +213,45 @@ func (t *Tabular) Join(r Tabular, fn func(rows []Variable) [][]Variable) (Tabula
 	return result, nil
 }
 
+func (t *Tabular) Merge(r Tabular) (Tabular, error) {
+	newTabular := *t
+	for _, c := range r.column {
+		ci := newTabular.GetColIndex(c)
+		if ci == -1 {
+			ci = r.GetColIndex(c)
+
+			newTabular.AddColumn(func(rows []Variable) [][]Variable {
+				var temp [][]Variable
+				for _, nr := range r.GetAllRows() {
+					localRow := make([]Variable, len(rows))
+					copy(localRow, rows)
+					newV := nr[ci]
+					localRow = append(localRow, newV)
+					temp = append(temp, localRow)
+				}
+				return temp
+			}, c)
+			continue
+		}
+
+		for _, ganr := range newTabular.GetAllRows() {
+			for _, gar := range r.GetAllRows() {
+				localRow := make([]Variable, len(ganr))
+				copy(localRow, ganr)
+				newV := gar[ci]
+				localRow[ci] = newV
+
+				err := newTabular.AddRow(localRow...)
+				if err != nil {
+					return newTabular, err
+				}
+			}
+		}
+	}
+
+	return newTabular, nil
+}
+
 type Storage struct {
 	item map[string]StorageItem
 }
