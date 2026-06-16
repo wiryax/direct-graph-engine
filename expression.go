@@ -160,12 +160,10 @@ func evaluate(gCtx *GraphContext, queue []token) expressionState {
 				} else {
 					tk.eType = ExpBoolTrue
 				}
-				break
 			default:
 				panic(fmt.Sprintf("unknown token type with id %d", tk.eType))
 			}
 		default:
-			break
 		}
 		stackExp.push(tk)
 	}
