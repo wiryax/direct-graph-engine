@@ -1094,3 +1094,46 @@ func TestGraphWorkflow(t *testing.T) {
 	}
 
 }
+
+func TestLoopGraphWorkflow(t *testing.T) {
+	loopGraph := &TabularLoop{
+		id:               "TabularLoop1",
+		tabularStorageId: "1",
+		vState:           Pending,
+		maxLoop:          3,
+	}
+
+	vA := loopGraph.Add("A", taskFunc(nil))
+	vB := loopGraph.Add("B", taskFunc(nil))
+
+	loopGraph.Connect(vA, vB, Success, ExpOr, nil)
+	storage := NewStorage()
+	storage.SetTabular("1", Tabular{
+		rows: [][]Variable{
+			{
+				{
+					code: 0,
+					raw:  []byte("1"),
+				},
+				{
+					code: 0,
+					raw:  []byte("2"),
+				},
+			}, {
+				{
+					code: 0,
+					raw:  []byte("1"),
+				},
+				{
+					code: 0,
+					raw:  []byte("2"),
+				},
+			},
+		},
+		column: []string{"1", "2"},
+	})
+
+	gCtx := NewGraphContext(NewLogger(os.Stdout), NewRuntimeState(make(map[string]string)), storage)
+	loopGraph.ExecuteTask(gCtx)
+	t.Logf("%v", loopGraph)
+}

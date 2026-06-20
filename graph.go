@@ -2,6 +2,7 @@ package dge
 
 import (
 	"fmt"
+	"os"
 )
 
 type Task interface {
@@ -97,17 +98,22 @@ func (g *BasicGraph) run(gCtx *GraphContext) {
 		panic("graph context cannot nil")
 	}
 
+	queue := getRoot(g.vertex)
+
+	execute(gCtx, queue)
+}
+
+func getRoot(vertex []*BasicVertex) []*BasicVertex {
 	var queue []*BasicVertex
-	for _, v := range g.vertex {
+	for _, v := range vertex {
 		if v.pendingEdge == 0 && v.failEdge == 0 {
 			queue = append(queue, v)
 		}
 	}
-
-	g.execute(gCtx, queue)
+	return queue
 }
 
-func (g *BasicGraph) execute(gCtx *GraphContext, queue []*BasicVertex) {
+func execute(gCtx *GraphContext, queue []*BasicVertex) {
 	for {
 		if len(queue) == 0 {
 			break
@@ -118,20 +124,20 @@ func (g *BasicGraph) execute(gCtx *GraphContext, queue []*BasicVertex) {
 
 		v.state = Running
 
-		gCtx.Log(EventStart, LevelInfo, "Start execute vertex", v.GetId(), g.id)
+		gCtx.Log(EventStart, LevelInfo, "Start execute vertex", v.GetId(), "")
 		err := v.ExecuteTask(gCtx)
 		if err != nil {
-			gCtx.Log(EventFailed, LevelInfo, err.Error(), v.GetId(), g.id)
+			gCtx.Log(EventFailed, LevelInfo, err.Error(), v.GetId(), "")
 			v.state = Fail
 		} else {
-			gCtx.Log(EventSuccess, LevelInfo, "Finish execute vertex", v.GetId(), g.id)
+			gCtx.Log(EventSuccess, LevelInfo, "Finish execute vertex", v.GetId(), "")
 			v.state = Success
 		}
-		g.getReadyVertex(gCtx, v, &queue)
+		getReadyVertex(gCtx, v, &queue)
 	}
 }
 
-func (g *BasicGraph) getReadyVertex(gCtx *GraphContext, v *BasicVertex, queue *[]*BasicVertex) {
+func getReadyVertex(gCtx *GraphContext, v *BasicVertex, queue *[]*BasicVertex) {
 	for _, child := range v.out {
 		if !child.evalConst() && child.lOp == ExpAnd {
 			child.to.failEdge++
@@ -150,7 +156,7 @@ func (g *BasicGraph) getReadyVertex(gCtx *GraphContext, v *BasicVertex, queue *[
 			child.to.state = Skipped
 		}
 
-		g.getReadyVertex(gCtx, child.to, queue)
+		getReadyVertex(gCtx, child.to, queue)
 
 		if child.to.pendingEdge == 0 && child.to.failEdge == 0 {
 			*queue = append(*queue, child.to)
@@ -197,4 +203,102 @@ func (g *BasicGraph) GetVertex(id string) *BasicVertex {
 		}
 	}
 	return nil
+}
+
+type TabularLoop struct {
+	id               string
+	tabularStorageId string
+	vertex           []*BasicVertex
+	vState           state
+	maxLoop          int
+}
+
+func NewTabularLoop(id string, storageId string, maxLoop int) *TabularLoop {
+	return &TabularLoop{
+		id:               id,
+		tabularStorageId: storageId,
+		vState:           Pending,
+		maxLoop:          maxLoop,
+	}
+}
+
+func (t *TabularLoop) ExecuteTask(gCtx *GraphContext) error {
+	tabular, err := gCtx.GetTabularStorage(t.tabularStorageId)
+	if err != nil {
+		return err
+	}
+
+	t.vState = Running
+	defer func() {
+		if err != nil {
+			t.vState = Fail
+		} else {
+			t.vState = Success
+		}
+	}()
+	t.RunWithTabular(gCtx, tabular)
+	return nil
+}
+
+func (t *TabularLoop) resetVertexState() {
+	for i := range t.vertex {
+		t.vertex[i].state = Pending
+	}
+}
+
+func (t *TabularLoop) RunWithContext(gCtx *GraphContext) {
+	if gCtx == nil {
+		panic("graph context cannot nil")
+	}
+	t.ExecuteTask(gCtx)
+}
+
+func (t *TabularLoop) Connect(from, to *BasicVertex, op state, lOp tokenType, tk []token) {
+	edge := &Edge{
+		from:   from,
+		to:     to,
+		pConst: op,
+		lOp:    lOp,
+	}
+
+	to.pendingEdge++
+
+	for i := range tk {
+		edge.exp.push(tk[i])
+	}
+	from.out = append(from.out, edge)
+}
+
+func (t *TabularLoop) Add(id string, task Task) *BasicVertex {
+	v := &BasicVertex{
+		id:    id,
+		task:  task,
+		state: Pending,
+	}
+
+	t.vertex = append(t.vertex, v)
+	return v
+}
+
+func (t *TabularLoop) RunWithTabular(gCtx *GraphContext, tabular Tabular) {
+	var (
+		state = make(map[string]string)
+		cols  = tabular.GetAllColumns()
+		rows  = tabular.GetAllRows()
+	)
+
+	for i := 0; i < t.maxLoop && i < len(rows); i++ {
+		var childCtx *GraphContext
+		for cell := range rows {
+			state[cols[cell]] = rows[i][cell].String()
+		}
+
+		rState := NewRuntimeState(state)
+		storage := NewStorage()
+		childCtx = NewGraphContext(NewLogger(os.Stdout), rState, storage)
+
+		queue := getRoot(t.vertex)
+		execute(childCtx, queue)
+		t.resetVertexState()
+	}
 }
