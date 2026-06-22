@@ -139,6 +139,9 @@ func execute(gCtx *GraphContext, queue []*BasicVertex) {
 
 func getReadyVertex(gCtx *GraphContext, v *BasicVertex, queue *[]*BasicVertex) {
 	for _, child := range v.out {
+		if child.from.state == Pending {
+			continue
+		}
 		if !child.evalConst() && child.lOp == ExpAnd {
 			child.to.failEdge++
 			child.to.pendingEdge--

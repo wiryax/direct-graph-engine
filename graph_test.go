@@ -1048,6 +1048,86 @@ func TestGraphWorkflow(t *testing.T) {
 					failEdge:    1,
 				},
 			},
+		}, {
+			title: "TestDepth",
+			tGraph: tGraph{
+				tVertex: []tVertex{
+					{
+						id:   "vA",
+						task: taskFunc(nil),
+					}, {
+						id:   "vB",
+						task: taskFunc(nil),
+					}, {
+						id:   "vC",
+						task: taskFunc(nil),
+					},
+				},
+				relationship: []relationship{
+					{
+						from:   "vA",
+						to:     "vB",
+						lOp:    ExpAnd,
+						pConst: Success,
+					}, {
+						from:   "vB",
+						to:     "vC",
+						lOp:    ExpAnd,
+						pConst: Success,
+					},
+				},
+				log: nil,
+			},
+			preRuntimeState: &RuntimeState{
+				state:    make(map[string]*BasicVertex),
+				variable: make(map[string]string),
+				vState:   make(map[*BasicVertex]state),
+			},
+			postRuntimeState: &RuntimeState{
+				state:    make(map[string]*BasicVertex),
+				variable: make(map[string]string),
+				vState:   make(map[*BasicVertex]state),
+			},
+			preVertex: []*BasicVertex{
+				&BasicVertex{
+					id:          "vA",
+					state:       Pending,
+					pendingEdge: 0,
+					failEdge:    0,
+				},
+				&BasicVertex{
+					id:          "vB",
+					state:       Pending,
+					pendingEdge: 1,
+					failEdge:    0,
+				},
+				&BasicVertex{
+					id:          "vC",
+					state:       Pending,
+					pendingEdge: 1,
+					failEdge:    0,
+				},
+			},
+			postVertex: []*BasicVertex{
+				&BasicVertex{
+					id:          "vA",
+					state:       Success,
+					pendingEdge: 0,
+					failEdge:    0,
+				},
+				&BasicVertex{
+					id:          "vB",
+					state:       Success,
+					pendingEdge: 0,
+					failEdge:    0,
+				},
+				&BasicVertex{
+					id:          "vC",
+					state:       Success,
+					pendingEdge: 0,
+					failEdge:    0,
+				},
+			},
 		},
 	}
 
