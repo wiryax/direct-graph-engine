@@ -2,7 +2,6 @@ package dge
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -72,51 +71,38 @@ func ParseVariable(b []byte) Variable {
 	}
 }
 
+type Column struct {
+	name string
+	data []Variable
+}
+
 type Tabular struct {
-	rows   [][]Variable
-	column []string
+	columns []Column
 }
 
-func MakeTabular(column []string) *Tabular {
-	return &Tabular{
-		rows:   [][]Variable{},
-		column: column,
-	}
+func MakeTabular() *Tabular {
+	return &Tabular{}
 }
 
-func (t *Tabular) String() string {
-	var buff bytes.Buffer
-	w := tabwriter.NewWriter(&buff, 1, 1, 3, ' ', 0)
-
-	if len(t.column) > 0 {
-		fmt.Fprintln(w, strings.Join(t.column, "\t"))
+func (t *Tabular) CountRows() int {
+	if !t.isCartesian() {
+		return len(t.columns[0].data)
 	}
 
-	for _, row := range t.rows {
-		for j, cell := range row {
-			w.Write([]byte(cell.GetRaw()))
-			if j < len(row)-1 {
-				w.Write([]byte("\t"))
-			}
-		}
-		w.Write([]byte("\n"))
+	total := 1
+	for i := range t.columns {
+		total *= len(t.columns[i].data)
 	}
-
-	w.Flush()
-	return "\n" + buff.String() + "\n"
+	return total
 }
 
-func (t *Tabular) AddRow(v ...Variable) error {
-	if len(t.column) != len(v) {
-		return fmt.Errorf("column not match")
-	}
-	t.rows = append(t.rows, v)
-	return nil
+func (t *Tabular) CountColumns() int {
+	return len(t.columns)
 }
 
-func (t *Tabular) GetColIndex(key string) int {
-	for i := range t.column {
-		if t.column[i] == key {
+func (t *Tabular) GetColumnIndex(name string) int {
+	for i := range t.columns {
+		if t.columns[i].name == name {
 			return i
 		}
 	}
@@ -124,132 +110,110 @@ func (t *Tabular) GetColIndex(key string) int {
 	return -1
 }
 
-func (t *Tabular) GetAllRows() [][]Variable {
-	temp := make([][]Variable, len(t.rows))
-	if copy(temp, t.rows) != len(temp) {
-		return nil
+func (t *Tabular) AddOrSetColumn(name string, data ...Variable) {
+	if t.AddData(Column{
+		name: name,
+		data: data,
+	}) == nil {
+
+		return
 	}
-	return temp
+
+	newColumn := Column{
+		name: name,
+		data: data,
+	}
+
+	t.columns = append(t.columns, newColumn)
 }
 
-func (t *Tabular) GetAllColumns() []string {
-	temp := make([]string, len(t.column))
-	if copy(temp, t.column) != len(temp) {
-		return nil
-	}
-	return temp
-}
-
-func (t *Tabular) FilterTabular(key string, fn func(v []Variable) bool) Tabular {
-	var temp [][]Variable
-	for i := range t.rows {
-		if fn(t.rows[i]) {
-			temp = append(temp, t.rows[i])
-		}
+func (t *Tabular) AddData(data Column) error {
+	var index int
+	if index = t.GetColumnIndex(data.name); index == -1 {
+		return fmt.Errorf("column with %s key not exist", data.name)
 	}
 
-	return Tabular{
-		rows:   temp,
-		column: t.column,
-	}
-}
-
-func (t *Tabular) AddColumn(fn func(rows []Variable) [][]Variable, c ...string) error {
-	t.column = append(t.column, c...)
-	cLen := len(t.column)
-
-	if len(t.rows) == 0 {
-		result := fn(nil)
-
-		for _, nr := range result {
-			if len(nr) != cLen {
-				return errors.New("un-match rows with column length")
-			}
-			t.rows = append(t.rows, nr)
-		}
-		return nil
-	}
-
-	var temp [][]Variable
-	for _, r := range t.rows {
-		result := fn(r)
-		if result == nil {
-			continue
-		}
-		for _, c := range result {
-			if len(c) != cLen {
-				return fmt.Errorf("un-match column length %d", cLen)
-			}
-		}
-		temp = append(temp, result...)
-	}
-	t.rows = temp
+	t.columns[index].data = append(t.columns[index].data, data.data...)
 	return nil
 }
 
-func (t *Tabular) Join(r Tabular, fn func(rows []Variable) [][]Variable) (Tabular, error) {
-	result := Tabular{
-		column: append(t.column, r.column...),
-	}
-
-	if len(t.rows) == 0 {
-		jRows := fn(nil)
-		if jRows == nil {
-			return Tabular{}, fmt.Errorf("something wrong")
+func (t *Tabular) GetRows(ri int) ([]Variable, error) {
+	var temp []Variable
+	for ci := range t.columns {
+		cell, err := t.GetCell(ci, ri)
+		if err != nil {
+			return nil, err
 		}
-		result.rows = append(result.rows, jRows...)
-		return result, nil
+		temp = append(temp, cell)
 	}
-
-	for _, r := range t.rows {
-		jRows := fn(r)
-		if jRows == nil {
-			return Tabular{}, fmt.Errorf("something wrong")
-		}
-
-		result.rows = append(result.rows, jRows...)
-	}
-
-	return result, nil
+	return temp, nil
 }
 
-func (t *Tabular) Merge(r Tabular) (Tabular, error) {
-	newTabular := *t
-	for _, c := range r.column {
-		ci := newTabular.GetColIndex(c)
-		if ci == -1 {
-			ci = r.GetColIndex(c)
+func (t *Tabular) GetCell(ci, ri int) (Variable, error) {
+	if (ci < 0 || ri < 0) || ci > len(t.columns) || ri > t.CountRows() {
+		return Variable{}, fmt.Errorf("invalid index")
+	}
+	if t.isCartesian() {
+		return t.cartesianProduct(ci, ri)
+	}
+	return t.pairedRows(ci, ri)
+}
 
-			newTabular.AddColumn(func(rows []Variable) [][]Variable {
-				var temp [][]Variable
-				for _, nr := range r.GetAllRows() {
-					localRow := make([]Variable, len(rows))
-					copy(localRow, rows)
-					newV := nr[ci]
-					localRow = append(localRow, newV)
-					temp = append(temp, localRow)
-				}
-				return temp
-			}, c)
-			continue
-		}
-
-		for _, ganr := range newTabular.GetAllRows() {
-			for _, gar := range r.GetAllRows() {
-				localRow := make([]Variable, len(ganr))
-				copy(localRow, ganr)
-				newV := gar[ci]
-				localRow[ci] = newV
-
-				err := newTabular.AddRow(localRow...)
-				if err != nil {
-					return newTabular, err
-				}
-			}
-		}
+func (t *Tabular) isCartesian() bool {
+	if len(t.columns) == 0 {
+		return false
 	}
 
-	return newTabular, nil
+	firstColLen := len(t.columns[0].data)
+	for _, c := range t.columns {
+		if len(c.data) != firstColLen {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Tabular) pairedRows(ci, ri int) (Variable, error) {
+	return t.columns[ci].data[ri], nil
+}
+
+func (t *Tabular) cartesianProduct(ci, ri int) (Variable, error) {
+	c := t.columns[ci]
+	clen := len(c.data)
+
+	divisor := 1
+	for i := 0; i < ci; i++ {
+		divisor *= len(t.columns[i].data)
+	}
+	actual := (ri / divisor) % clen
+	return c.data[actual], nil
+}
+
+func (t Tabular) String() string {
+	var buff bytes.Buffer
+	w := tabwriter.NewWriter(&buff, 1, 1, 3, ' ', 0)
+
+	if len(t.columns) > 0 {
+		var columns []string
+		for _, c := range t.columns {
+			columns = append(columns, c.name)
+		}
+		fmt.Fprintln(w, strings.Join(columns, "\t"))
+	} else {
+		return ""
+	}
+
+	for ri := 0; ri < t.CountRows(); ri++ {
+		for ci := range t.columns {
+			v, _ := t.GetCell(ci, ri)
+			w.Write(v.raw)
+			w.Write([]byte("\t"))
+		}
+		w.Write([]byte("\n"))
+	}
+
+	w.Flush()
+	return "\n" + buff.String() + "\n"
 }
 
 type Storage struct {
