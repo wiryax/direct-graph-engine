@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	dge "github.com/wiryax/direct-graph-engine"
 	engine "github.com/wiryax/direct-graph-engine"
 )
 
@@ -33,16 +34,17 @@ func (cf *CsvFilter) Execute(gCtx *engine.GraphContext) error {
 	}
 
 	for c := range cf.clauses {
-		i := t.GetColIndex(cf.clauses[c].column)
+		i := t.GetColumnIndex(cf.clauses[c].column)
 		if i == -1 {
 			return fmt.Errorf("column with key %s not found", cf.clauses[c].column)
 		}
 		cf.clauses[c].index = i
 	}
 
-	fn := func(v []engine.Variable) bool {
+	fn := func(v []engine.Column) bool {
 		for _, c := range cf.clauses {
-			if string(v[c.index].GetRaw()) != c.value {
+			data, _ := v[c.index].GetFirst()
+			if string(data.GetRaw()) != c.value {
 				return false
 			}
 		}
@@ -50,7 +52,22 @@ func (cf *CsvFilter) Execute(gCtx *engine.GraphContext) error {
 		return true
 	}
 
-	tResult := t.FilterTabular(cf.storageId, fn)
+	var (
+		tResult = t.CloneStructure()
+		// columns dge.Column
+	)
+	for ri := range t.CountRows() {
+		rows, err := t.GetRows(ri)
+		if err != nil {
+			return err
+		}
+
+		if fn(rows) {
+			for ri := range rows {
+				tResult.AddOrSetColumn(rows[ri].GetColumnName(), rows[ri].GetAllData()...)
+			}
+		}
+	}
 
 	gCtx.SetTabularStorage(cf.storageId, tResult)
 	return nil
@@ -76,19 +93,14 @@ func (cr *MockCsvReader) Execute(gCtx *engine.GraphContext) error {
 		return err
 	}
 
-	columns := records[0]
-	rows := records[1:]
+	t := engine.MakeTabular()
 
-	t := engine.MakeTabular(columns)
-
-	for _, r := range rows {
-		var tempRow []engine.Variable
-
-		for _, record := range r {
-			tempRow = append(tempRow, engine.ParseVariable([]byte(record)))
+	for c := range records[0] {
+		var temp []dge.Variable
+		for d := range records[1:] {
+			temp = append(temp, dge.ParseVariable([]byte(records[d][c])))
 		}
-
-		t.AddRow(tempRow...)
+		t.AddOrSetColumn(records[0][c], temp...)
 	}
 
 	gCtx.SetTabularStorage(cr.storageId, *t)

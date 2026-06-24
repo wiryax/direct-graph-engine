@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	dge "github.com/wiryax/direct-graph-engine"
 	engine "github.com/wiryax/direct-graph-engine"
 )
 
@@ -35,12 +36,10 @@ func TestCsvFilterWorkflow(t *testing.T) {
 
 	graph.RunWithContext(gCtx)
 
-	expectedTabular := engine.MakeTabular([]string{"first_name", "middle_name", "last_name"})
-	expectedTabular.AddRow(
-		engine.ParseVariable([]byte("wirya")),
-		engine.ParseVariable([]byte("muhammad")),
-		engine.ParseVariable([]byte("nugraha")))
-
+	expectedTabular := engine.MakeTabular()
+	expectedTabular.AddOrSetColumn("first_name", dge.ParseVariable([]byte("wirya")))
+	expectedTabular.AddOrSetColumn("middle_name", dge.ParseVariable([]byte("muhammad")))
+	expectedTabular.AddOrSetColumn("last_name", dge.ParseVariable([]byte("nugraha")))
 	tResult, err := gCtx.GetTabularStorage(mockCsvStorageId)
 	if err != nil {
 		t.Fatalf("unexpected error %v", tResult)

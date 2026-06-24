@@ -2,7 +2,9 @@ package dge
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"text/tabwriter"
 )
@@ -76,12 +78,39 @@ type Column struct {
 	data []Variable
 }
 
+func (c Column) GetAllData() []Variable {
+	return slices.Clone(c.data)
+}
+
+func (c Column) GetColumnName() string {
+	return c.name
+}
+
+func (c Column) GetFirst() (Variable, error) {
+	if len(c.data) == 0 {
+		return Variable{}, errors.New("empty column")
+	}
+	return c.data[0], nil
+}
+
 type Tabular struct {
 	columns []Column
 }
 
 func MakeTabular() *Tabular {
 	return &Tabular{}
+}
+
+func (t *Tabular) CloneStructure() Tabular {
+	var col []Column
+	for _, c := range t.columns {
+		col = append(col, Column{
+			name: c.name,
+		})
+	}
+	return Tabular{
+		columns: col,
+	}
 }
 
 func (t *Tabular) CountRows() int {
@@ -137,14 +166,18 @@ func (t *Tabular) AddData(data Column) error {
 	return nil
 }
 
-func (t *Tabular) GetRows(ri int) ([]Variable, error) {
-	var temp []Variable
+func (t *Tabular) GetRows(ri int) ([]Column, error) {
+	var temp []Column
 	for ci := range t.columns {
 		cell, err := t.GetCell(ci, ri)
 		if err != nil {
 			return nil, err
 		}
-		temp = append(temp, cell)
+
+		temp = append(temp, Column{
+			name: t.columns[ci].name,
+			data: []Variable{cell},
+		})
 	}
 	return temp, nil
 }
