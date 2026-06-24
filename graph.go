@@ -9,9 +9,10 @@ type Task interface {
 	Execute(gCtx *GraphContext) error
 }
 
-type Graph interface {
+type graph interface {
 	Run()
 	RunWithContext(gCtx *GraphContext)
+	Copy() graph
 }
 
 type state int
@@ -76,6 +77,29 @@ func NewGraph(id string) *BasicGraph {
 	return &BasicGraph{
 		id: id,
 	}
+}
+
+func (g *BasicGraph) Copy() graph {
+	newGraph := &BasicGraph{
+		id: g.id,
+	}
+
+	for i := range g.vertex {
+		newGraph.Add(g.vertex[i].id, g.vertex[i].task)
+	}
+
+	for i := range g.vertex {
+		for j := range g.vertex[i].in {
+			newGraph.Connect(g.vertex[i].in[j].from, g.vertex[i].in[j].from, g.vertex[i].in[j].pConst, g.vertex[i].in[j].lOp, g.vertex[i].in[j].exp.tokens)
+		}
+
+		for j := range g.vertex[i].out {
+			newGraph.Connect(g.vertex[i].out[j].from, g.vertex[i].out[j].from, g.vertex[i].out[j].pConst, g.vertex[i].out[j].lOp, g.vertex[i].out[j].exp.tokens)
+		}
+	}
+
+	return newGraph
+
 }
 
 func (g *BasicGraph) RunWithContext(gCtx *GraphContext) {
@@ -211,7 +235,7 @@ func (g *BasicGraph) GetVertex(id string) *BasicVertex {
 type TabularLoop struct {
 	id               string
 	tabularStorageId string
-	vertex           []*BasicVertex
+	graph            graph
 	vState           state
 	maxLoop          int
 }
@@ -243,12 +267,6 @@ func (t *TabularLoop) ExecuteTask(gCtx *GraphContext) error {
 	return nil
 }
 
-func (t *TabularLoop) resetVertexState() {
-	for i := range t.vertex {
-		t.vertex[i].state = Pending
-	}
-}
-
 func (t *TabularLoop) RunWithContext(gCtx *GraphContext) {
 	if gCtx == nil {
 		panic("graph context cannot nil")
@@ -256,52 +274,27 @@ func (t *TabularLoop) RunWithContext(gCtx *GraphContext) {
 	t.ExecuteTask(gCtx)
 }
 
-func (t *TabularLoop) Connect(from, to *BasicVertex, op state, lOp tokenType, tk []token) {
-	edge := &Edge{
-		from:   from,
-		to:     to,
-		pConst: op,
-		lOp:    lOp,
-	}
-
-	to.pendingEdge++
-
-	for i := range tk {
-		edge.exp.push(tk[i])
-	}
-	from.out = append(from.out, edge)
-}
-
-func (t *TabularLoop) Add(id string, task Task) *BasicVertex {
-	v := &BasicVertex{
-		id:    id,
-		task:  task,
-		state: Pending,
-	}
-
-	t.vertex = append(t.vertex, v)
-	return v
-}
-
 func (t *TabularLoop) RunWithTabular(gCtx *GraphContext, tabular Tabular) {
 	var (
 		state = make(map[string]string)
-		cols  = tabular.GetAllColumns()
-		rows  = tabular.GetAllRows()
 	)
 
-	for i := 0; i < t.maxLoop && i < len(rows); i++ {
+	for i := 0; i < t.maxLoop && i < tabular.CountRows(); i++ {
 		var childCtx *GraphContext
-		for cell := range rows {
-			state[cols[cell]] = rows[i][cell].String()
+		for ci := range tabular.columns {
+			cell, err := tabular.GetCell(ci, i)
+			if err != nil {
+				gCtx.Log(EventFailed, LevelError, "error while mapping tabular data:"+err.Error(), "", t.id)
+				break
+			}
+			state[tabular.columns[ci].name] = cell.String()
 		}
 
 		rState := NewRuntimeState(state)
 		storage := NewStorage()
 		childCtx = NewGraphContext(NewLogger(os.Stdout), rState, storage)
 
-		queue := getRoot(t.vertex)
-		execute(childCtx, queue)
-		t.resetVertexState()
+		g := t.graph.Copy()
+		g.RunWithContext(childCtx)
 	}
 }
