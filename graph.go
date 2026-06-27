@@ -2,7 +2,7 @@ package dge
 
 import (
 	"fmt"
-	"os"
+	"log/slog"
 )
 
 type Task interface {
@@ -113,7 +113,7 @@ func (g *BasicGraph) Run() {
 
 	storage := NewStorage()
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, storage)
+	gCtx := NewGraphWithLogContext(slog.With("graph_id", g.id), rState, storage)
 	g.run(gCtx)
 }
 
@@ -145,16 +145,15 @@ func execute(gCtx *GraphContext, queue []*BasicVertex) {
 
 		v := queue[0]
 		queue = queue[1:]
-
 		v.state = Running
 
-		gCtx.Log(EventStart, LevelInfo, "Start execute vertex", v.GetId(), "")
-		err := v.ExecuteTask(gCtx)
+		childCtx := gCtx.WithVertex(v.GetId())
+		err := v.ExecuteTask(childCtx)
 		if err != nil {
-			gCtx.Log(EventFailed, LevelInfo, err.Error(), v.GetId(), "")
+			gCtx.Log.Error(err.Error(), "vertex_id", v.id)
 			v.state = Fail
 		} else {
-			gCtx.Log(EventSuccess, LevelInfo, "Finish execute vertex", v.GetId(), "")
+			gCtx.Log.Info("success execute vertex", "vertex_id", v.id)
 			v.state = Success
 		}
 		getReadyVertex(gCtx, v, &queue)
@@ -263,6 +262,7 @@ func (t *TabularLoop) ExecuteTask(gCtx *GraphContext) error {
 			t.vState = Success
 		}
 	}()
+
 	t.RunWithTabular(gCtx, tabular)
 	return nil
 }
@@ -284,7 +284,7 @@ func (t *TabularLoop) RunWithTabular(gCtx *GraphContext, tabular Tabular) {
 		for ci := range tabular.columns {
 			cell, err := tabular.GetCell(ci, i)
 			if err != nil {
-				gCtx.Log(EventFailed, LevelError, "error while mapping tabular data:"+err.Error(), "", t.id)
+				gCtx.Log.Error("error while mapping tabular data:" + err.Error())
 				break
 			}
 			state[tabular.columns[ci].name] = cell.String()
@@ -292,8 +292,7 @@ func (t *TabularLoop) RunWithTabular(gCtx *GraphContext, tabular Tabular) {
 
 		rState := NewRuntimeState(state)
 		storage := NewStorage()
-		childCtx = NewGraphContext(NewLogger(os.Stdout), rState, storage)
-
+		childCtx = NewGraphWithLogContext(slog.With("sub_graph", t.id, "iteration", i), rState, storage)
 		g := t.graph.Copy()
 		g.RunWithContext(childCtx)
 	}

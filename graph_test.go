@@ -2,17 +2,13 @@ package dge
 
 import (
 	"errors"
-	"os"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
-
-func strPtr(s string) *string {
-	return &s
-}
 
 type MockTask struct {
 	task func(gCtx *GraphContext) error
@@ -1134,7 +1130,7 @@ func TestGraphWorkflow(t *testing.T) {
 	for _, tc := range testCase {
 		t.Run(tc.title, func(t *testing.T) {
 			g := NewGraph(tc.title)
-			gCtx := NewGraphContext(NewLogger(os.Stdout), tc.preRuntimeState, nil)
+			gCtx := NewGraphWithLogContext(slog.With(), tc.preRuntimeState, nil)
 
 			for _, v := range tc.tGraph.tVertex {
 				g.Add(v.id, v.task)
@@ -1236,7 +1232,7 @@ func TestLoopGraphWorkflow(t *testing.T) {
 
 	loopGraph.graph = g
 
-	gCtx := NewGraphContext(NewLogger(os.Stdout), NewRuntimeState(make(map[string]string)), storage)
+	gCtx := NewGraphWithLogContext(slog.Default(), NewRuntimeState(make(map[string]string)), storage)
 	loopGraph.ExecuteTask(gCtx)
 	t.Logf("%v", loopGraph)
 }

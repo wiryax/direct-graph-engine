@@ -1,16 +1,34 @@
 package dge
 
+import "log/slog"
+
 type GraphContext struct {
 	rState  *RuntimeState
-	logger  GraphLogger
 	storage *Storage
+	Log     *slog.Logger
 }
 
-func NewGraphContext(gLog GraphLogger, rState *RuntimeState, storage *Storage) *GraphContext {
+func NewGraphWithLogContext(gLog *slog.Logger, rState *RuntimeState, storage *Storage) *GraphContext {
 	return &GraphContext{
-		logger:  gLog,
 		rState:  rState,
 		storage: storage,
+		Log:     gLog,
+	}
+}
+
+func (gCtx *GraphContext) WithVertex(id string) *GraphContext {
+	return gCtx.withNewLog("vertex_id", id)
+}
+
+func (gCtx *GraphContext) WithGraph(id string) *GraphContext {
+	return gCtx.withNewLog("graph_id", id)
+}
+
+func (gCtx *GraphContext) withNewLog(newField, id string) *GraphContext {
+	return &GraphContext{
+		rState:  gCtx.rState,
+		storage: gCtx.storage,
+		Log:     gCtx.Log.With(newField, id),
 	}
 }
 
@@ -20,10 +38,6 @@ func (gCtx *GraphContext) GetVariable(key string) (string, error) {
 
 func (gCtx *GraphContext) SetVariable(key, value string) {
 	gCtx.rState.SetVariable(key, value)
-}
-
-func (gCtx *GraphContext) Log(et EvenType, logLv LogLevel, msg, vId, gId string) {
-	gCtx.logger.FlushLog(et, logLv, msg, vId, gId)
 }
 
 func (gCtx *GraphContext) SetTabularStorage(key string, data Tabular) {

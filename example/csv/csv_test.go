@@ -1,7 +1,7 @@
 package csv
 
 import (
-	"os"
+	"log/slog"
 	"reflect"
 	"testing"
 
@@ -10,11 +10,10 @@ import (
 )
 
 func TestCsvFilterWorkflow(t *testing.T) {
-	logger := engine.NewLogger(os.Stdout)
 	mockCsvStorageId := "mockCsvConn"
 	rState := engine.NewRuntimeState(make(map[string]string))
 	storage := engine.NewStorage()
-	gCtx := engine.NewGraphContext(logger, rState, storage)
+	gCtx := engine.NewGraphWithLogContext(slog.Default(), rState, storage)
 	graph := engine.NewGraph("TestCsvWorkflow")
 
 	csvReader := graph.Add("Csv Reader", NewMockCsvReader(mockCsvStorageId, "first_name,middle_name,last_name\nwirya,muhammad,nugraha\nnugraha,muhammad,wirya"))

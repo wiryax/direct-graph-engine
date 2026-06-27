@@ -1,6 +1,7 @@
 package dge
 
 import (
+	"log/slog"
 	"testing"
 )
 
@@ -24,7 +25,7 @@ func TestAndOpExpression_PositiveCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
+	gCtx := NewGraphWithLogContext(slog.Default(), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {
@@ -52,7 +53,7 @@ func TestAndOpExpression_NegativeCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
+	gCtx := NewGraphWithLogContext(slog.Default(), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != False {
@@ -80,7 +81,7 @@ func TestOrOpExpression_PositiveCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
+	gCtx := NewGraphWithLogContext(slog.Default(), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {
@@ -112,7 +113,7 @@ func TestOrOpExpression_NegativeCase(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
+	gCtx := NewGraphWithLogContext(slog.Default(), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {
@@ -144,7 +145,7 @@ func TestComplexExpression_WithoutParentness(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
+	gCtx := NewGraphWithLogContext(slog.Default(), rState, nil)
 
 	result := evaluate(gCtx, tokens)
 	if result != True {

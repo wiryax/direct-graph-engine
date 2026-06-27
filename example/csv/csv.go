@@ -68,7 +68,6 @@ func (cf *CsvFilter) Execute(gCtx *engine.GraphContext) error {
 			}
 		}
 	}
-
 	gCtx.SetTabularStorage(cf.storageId, tResult)
 	return nil
 }

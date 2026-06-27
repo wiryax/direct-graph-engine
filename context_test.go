@@ -1,6 +1,7 @@
 package dge
 
 import (
+	"log/slog"
 	"testing"
 )
 
@@ -11,7 +12,7 @@ func TestContextGetVariable(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
+	gCtx := NewGraphWithLogContext(slog.Default(), rState, nil)
 	r, err := gCtx.GetVariable("a")
 	if err != nil {
 		t.Fatalf("unexpected error, error should be nil\n")
@@ -29,7 +30,7 @@ func TestContextSetVariable(t *testing.T) {
 		},
 	}
 
-	gCtx := NewGraphContext(NewLogger(nil), rState, nil)
+	gCtx := NewGraphWithLogContext(slog.Default(), rState, nil)
 	gCtx.SetVariable("a", "B")
 
 	r, err := gCtx.GetVariable("a")
