@@ -140,20 +140,10 @@ func (t *Tabular) GetColumnIndex(name string) int {
 }
 
 func (t *Tabular) AddOrSetColumn(name string, data ...Variable) {
-	if t.AddData(Column{
-		name: name,
-		data: data,
-	}) == nil {
-
+	if t.AddData(Column{name: name, data: data}) == nil {
 		return
 	}
-
-	newColumn := Column{
-		name: name,
-		data: data,
-	}
-
-	t.columns = append(t.columns, newColumn)
+	t.columns = append(t.columns, Column{name: name, data: data})
 }
 
 func (t *Tabular) AddData(data Column) error {

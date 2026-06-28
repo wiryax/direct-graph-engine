@@ -235,57 +235,38 @@ type TabularLoop struct {
 	id               string
 	tabularStorageId string
 	graph            graph
-	vState           state
+	state            state
 	maxLoop          int
+	storageRegistry  map[string]StorageType
 }
 
 func NewTabularLoop(id string, storageId string, maxLoop int) *TabularLoop {
 	return &TabularLoop{
 		id:               id,
 		tabularStorageId: storageId,
-		vState:           Pending,
+		state:            Pending,
 		maxLoop:          maxLoop,
 	}
 }
 
-func (t *TabularLoop) ExecuteTask(gCtx *GraphContext) error {
+func (t *TabularLoop) Execute(gCtx *GraphContext) error {
 	tabular, err := gCtx.GetTabularStorage(t.tabularStorageId)
 	if err != nil {
 		return err
 	}
 
-	t.vState = Running
-	defer func() {
-		if err != nil {
-			t.vState = Fail
-		} else {
-			t.vState = Success
-		}
-	}()
-
-	t.RunWithTabular(gCtx, tabular)
+	t.runWithTabular(gCtx, tabular)
 	return nil
 }
 
-func (t *TabularLoop) RunWithContext(gCtx *GraphContext) {
-	if gCtx == nil {
-		panic("graph context cannot nil")
-	}
-	t.ExecuteTask(gCtx)
-}
-
-func (t *TabularLoop) RunWithTabular(gCtx *GraphContext, tabular Tabular) {
-	var (
-		state = make(map[string]string)
-	)
-
+func (t *TabularLoop) runWithTabular(gCtx *GraphContext, tabular Tabular) error {
 	for i := 0; i < t.maxLoop && i < tabular.CountRows(); i++ {
+		state := make(map[string]string)
 		var childCtx *GraphContext
 		for ci := range tabular.columns {
 			cell, err := tabular.GetCell(ci, i)
 			if err != nil {
-				gCtx.Log.Error("error while mapping tabular data:" + err.Error())
-				break
+				return err
 			}
 			state[tabular.columns[ci].name] = cell.String()
 		}
@@ -295,5 +276,36 @@ func (t *TabularLoop) RunWithTabular(gCtx *GraphContext, tabular Tabular) {
 		childCtx = NewGraphWithLogContext(slog.With("sub_graph", t.id, "iteration", i), rState, storage)
 		g := t.graph.Copy()
 		g.RunWithContext(childCtx)
+		err := t.appendRegistry(gCtx, childCtx)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (t *TabularLoop) appendRegistry(gCtx, childCtx *GraphContext) error {
+	for k, t := range t.storageRegistry {
+		if t == TypeTabular {
+			tabular, err := childCtx.storage.GetTabular(k)
+			if err != nil {
+				return err
+			}
+			ptabular, err := childCtx.storage.GetTabular(k)
+			if err != nil {
+				return err
+			}
+			for _, c := range tabular.columns {
+				ptabular.AddOrSetColumn(c.name, c.GetAllData()...)
+			}
+			gCtx.storage.SetTabular(k, ptabular)
+		} else {
+			blob, err := childCtx.GetBlob(k)
+			if err != nil {
+				return err
+			}
+			gCtx.SetBlob(k, blob)
+		}
+	}
+	return nil
 }

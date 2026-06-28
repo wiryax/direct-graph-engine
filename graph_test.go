@@ -3,6 +3,7 @@ package dge
 import (
 	"errors"
 	"log/slog"
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ type MockTask struct {
 	task func(gCtx *GraphContext) error
 }
 
-func NewMockTask(task func(gCtx *GraphContext) error) *MockTask {
+func newMockTask(task func(gCtx *GraphContext) error) *MockTask {
 	return &MockTask{
 		task: task,
 	}
@@ -25,7 +26,7 @@ func (m *MockTask) Execute(gCtx *GraphContext) error {
 }
 
 func newVertex(id string, task func(gCtx *GraphContext) error) *BasicVertex {
-	mockTask := NewMockTask(task)
+	mockTask := newMockTask(task)
 	return &BasicVertex{id: id, task: mockTask, state: Pending}
 }
 
@@ -1171,20 +1172,70 @@ func TestGraphWorkflow(t *testing.T) {
 
 }
 
-func TestLoopGraphWorkflow(t *testing.T) {
-	loopGraph := &TabularLoop{
+func TestLoopTaskRegistry(t *testing.T) {
+	expected := Tabular{
+		columns: []Column{
+			{
+				name: "A",
+				data: []Variable{
+					{
+						code: 0,
+						raw:  []byte("A"),
+					}, {
+						code: 0,
+						raw:  []byte("A"),
+					}, {
+						code: 0,
+						raw:  []byte("A"),
+					},
+				},
+			}, {
+				name: "B",
+				data: []Variable{
+					{
+						code: 0,
+						raw:  []byte("B"),
+					}, {
+						code: 0,
+						raw:  []byte("B"),
+					}, {
+						code: 0,
+						raw:  []byte("B"),
+					},
+				},
+			},
+		},
+	}
+
+	loopTask := &TabularLoop{
 		id:               "TabularLoop1",
 		tabularStorageId: "1",
-		vState:           Pending,
+		state:            Pending,
 		maxLoop:          3,
+		storageRegistry: map[string]StorageType{
+			"1": TypeTabular,
+		},
 	}
 
 	g := NewGraph("TabularLoop1")
 
-	vA := g.Add("A", taskFunc(nil))
-	vB := g.Add("B", taskFunc(nil))
+	g.Add("A", newMockTask(func(gCtx *GraphContext) error {
+		newTabular := MakeTabular()
+		va, err := gCtx.GetVariable("A")
+		if err != nil {
+			return err
+		}
 
-	g.Connect(vA, vB, Success, ExpOr, nil)
+		vb, err := gCtx.GetVariable("B")
+		if err != nil {
+			return err
+		}
+
+		newTabular.AddOrSetColumn("A", ParseVariable([]byte(va)))
+		newTabular.AddOrSetColumn("B", ParseVariable([]byte(vb)))
+		return nil
+	}))
+
 	storage := NewStorage()
 	storage.SetTabular("1", Tabular{
 		columns: []Column{
@@ -1193,18 +1244,15 @@ func TestLoopGraphWorkflow(t *testing.T) {
 				data: []Variable{
 					{
 						code: 0,
-						raw:  []byte("1"),
+						raw:  []byte("A"),
 					},
 					{
 						code: 0,
-						raw:  []byte("2"),
-					}, {
-						code: 0,
-						raw:  []byte("1"),
+						raw:  []byte("A"),
 					},
 					{
 						code: 0,
-						raw:  []byte("2"),
+						raw:  []byte("A"),
 					},
 				},
 			}, {
@@ -1212,27 +1260,35 @@ func TestLoopGraphWorkflow(t *testing.T) {
 				data: []Variable{
 					{
 						code: 0,
-						raw:  []byte("1"),
+						raw:  []byte("B"),
 					},
 					{
 						code: 0,
-						raw:  []byte("2"),
-					}, {
-						code: 0,
-						raw:  []byte("1"),
+						raw:  []byte("B"),
 					},
 					{
 						code: 0,
-						raw:  []byte("2"),
+						raw:  []byte("B"),
 					},
 				},
 			},
 		},
 	})
 
-	loopGraph.graph = g
+	loopTask.graph = g
 
 	gCtx := NewGraphWithLogContext(slog.Default(), NewRuntimeState(make(map[string]string)), storage)
-	loopGraph.ExecuteTask(gCtx)
-	t.Logf("%v", loopGraph)
+	err := loopTask.Execute(gCtx)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	result, err := gCtx.GetTabularStorage("1")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !reflect.DeepEqual(expected, result) {
+		t.Errorf("unexpected result. want %v, got %v", expected, result)
+	}
 }
