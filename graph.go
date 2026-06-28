@@ -257,8 +257,7 @@ func (t *TabularLoop) Execute(gCtx *GraphContext) error {
 		return err
 	}
 
-	t.runWithTabular(gCtx, tabular)
-	return nil
+	return t.runWithTabular(gCtx, tabular.Clone())
 }
 
 func (t *TabularLoop) runWithTabular(gCtx *GraphContext, tabular Tabular) error {
@@ -289,18 +288,18 @@ func (t *TabularLoop) runWithTabular(gCtx *GraphContext, tabular Tabular) error 
 func (t *TabularLoop) appendRegistry(gCtx, childCtx *GraphContext) error {
 	for k, t := range t.storageRegistry {
 		if t == TypeTabular {
-			tabular, err := childCtx.storage.GetTabular(k)
+			tabular, err := childCtx.GetTabularStorage(k)
 			if err != nil {
 				return err
 			}
-			ptabular, err := childCtx.storage.GetTabular(k)
+			ptabular, err := gCtx.GetTabularStorage(k)
 			if err != nil {
 				return err
 			}
 			for _, c := range tabular.columns {
 				ptabular.AddOrSetColumn(c.name, c.GetAllData()...)
 			}
-			gCtx.storage.SetTabular(k, ptabular)
+			gCtx.SetTabularStorage(k, ptabular)
 		} else {
 			blob, err := childCtx.GetBlob(k)
 			if err != nil {

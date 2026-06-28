@@ -101,6 +101,14 @@ func MakeTabular() *Tabular {
 	return &Tabular{}
 }
 
+func (t *Tabular) Clone() Tabular {
+	newT := MakeTabular()
+	for i := range t.CountColumns() {
+		newT.AddOrSetColumn(t.columns[i].name, t.columns[i].data...)
+	}
+	return *newT
+}
+
 func (t *Tabular) CloneStructure() Tabular {
 	var col []Column
 	for _, c := range t.columns {

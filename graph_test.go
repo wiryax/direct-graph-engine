@@ -1187,12 +1187,18 @@ func TestLoopTaskRegistry(t *testing.T) {
 					}, {
 						code: 0,
 						raw:  []byte("A"),
+					}, {
+						code: 0,
+						raw:  []byte("A"),
 					},
 				},
 			}, {
 				name: "B",
 				data: []Variable{
 					{
+						code: 0,
+						raw:  []byte("B"),
+					}, {
 						code: 0,
 						raw:  []byte("B"),
 					}, {
@@ -1211,7 +1217,7 @@ func TestLoopTaskRegistry(t *testing.T) {
 		id:               "TabularLoop1",
 		tabularStorageId: "1",
 		state:            Pending,
-		maxLoop:          3,
+		maxLoop:          6,
 		storageRegistry: map[string]StorageType{
 			"1": TypeTabular,
 		},
@@ -1233,6 +1239,7 @@ func TestLoopTaskRegistry(t *testing.T) {
 
 		newTabular.AddOrSetColumn("A", ParseVariable([]byte(va)))
 		newTabular.AddOrSetColumn("B", ParseVariable([]byte(vb)))
+		gCtx.SetTabularStorage("1", *newTabular)
 		return nil
 	}))
 
@@ -1242,10 +1249,6 @@ func TestLoopTaskRegistry(t *testing.T) {
 			{
 				name: "A",
 				data: []Variable{
-					{
-						code: 0,
-						raw:  []byte("A"),
-					},
 					{
 						code: 0,
 						raw:  []byte("A"),
@@ -1266,10 +1269,6 @@ func TestLoopTaskRegistry(t *testing.T) {
 						code: 0,
 						raw:  []byte("B"),
 					},
-					{
-						code: 0,
-						raw:  []byte("B"),
-					},
 				},
 			},
 		},
@@ -1278,6 +1277,7 @@ func TestLoopTaskRegistry(t *testing.T) {
 	loopTask.graph = g
 
 	gCtx := NewGraphWithLogContext(slog.Default(), NewRuntimeState(make(map[string]string)), storage)
+
 	err := loopTask.Execute(gCtx)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
