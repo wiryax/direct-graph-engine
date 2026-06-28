@@ -247,6 +247,7 @@ func NewTabularLoop(id string, storageId string, maxLoop int, graph graph, stora
 		state:            Pending,
 		maxLoop:          maxLoop,
 		graph:            graph,
+		storageRegistry:  storageRegistry,
 	}
 }
 
