@@ -240,7 +240,7 @@ type TabularLoop struct {
 	storageRegistry  map[string]StorageType
 }
 
-func NewTabularLoop(id string, storageId string, maxLoop int, graph graph) *TabularLoop {
+func NewTabularLoop(id string, storageId string, maxLoop int, graph graph, storageRegistry map[string]StorageType) *TabularLoop {
 	return &TabularLoop{
 		id:               id,
 		tabularStorageId: storageId,
