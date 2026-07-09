@@ -85,3 +85,10 @@ func TestAddNewColAgainstExistingCol(t *testing.T) {
 
 	t.Logf("result: %v", result)
 }
+
+func TestCountRowsOnEmptyTabular(t *testing.T) {
+	tabular := MakeTabular()
+	if tabular.CountRows() != 0 {
+		t.Errorf("unexpected err, want 0, got %v", tabular.CountRows())
+	}
+}

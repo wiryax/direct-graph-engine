@@ -122,6 +122,10 @@ func (t *Tabular) CloneStructure() Tabular {
 }
 
 func (t *Tabular) CountRows() int {
+	if len(t.columns) == 0 {
+		return 0
+	}
+
 	if !t.isCartesian() {
 		return len(t.columns[0].data)
 	}
@@ -275,7 +279,7 @@ func (s *Storage) GetTabular(key string) (Tabular, error) {
 		return Tabular{}, fmt.Errorf("cannot find tabular data with key %s", key)
 	}
 
-	return t.tabular, nil
+	return t.tabular.Clone(), nil
 }
 
 func (s *Storage) SetBlob(key string, data Blob) {
