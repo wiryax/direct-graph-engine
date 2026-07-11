@@ -15,6 +15,14 @@ type graph interface {
 	Copy() graph
 }
 
+type constrain int
+
+const (
+	OnSuccess constrain = iota
+	OnFail
+	OnCompilation
+)
+
 type state int
 
 const (
@@ -29,11 +37,19 @@ type Edge struct {
 	from, to *BasicVertex
 	exp      expression
 	lOp      tokenType
-	pConst   state
+	pConst   constrain
 }
 
 func (e *Edge) evalConst() bool {
-	return e.from.state == e.pConst
+	if e.from.state == Success && e.pConst == OnSuccess {
+		return true
+	} else if e.from.state == Fail && e.pConst == OnFail {
+		return true
+	} else if e.pConst == OnCompilation {
+		return true
+	} else {
+		return false
+	}
 }
 
 type Vertex interface {
@@ -194,7 +210,7 @@ func (g *BasicGraph) AddVertex(vertex ...*BasicVertex) {
 	g.vertex = append(g.vertex, vertex...)
 }
 
-func (g *BasicGraph) Connect(from, to *BasicVertex, op state, lOp tokenType, tk []token) {
+func (g *BasicGraph) Connect(from, to *BasicVertex, op constrain, lOp tokenType, tk []token) {
 	edge := &Edge{
 		from:   from,
 		to:     to,
@@ -234,20 +250,22 @@ func (g *BasicGraph) GetVertex(id string) *BasicVertex {
 type TabularLoop struct {
 	id               string
 	tabularStorageId string
-	graph            graph
 	state            state
 	maxLoop          int
-	storageRegistry  map[string]StorageType
+	graph            graph
+	inRegistry,
+	outRegistry map[string]StorageType
 }
 
-func NewTabularLoop(id string, storageId string, maxLoop int, graph graph, storageRegistry map[string]StorageType) *TabularLoop {
+func NewTabularLoop(id string, storageId string, maxLoop int, graph graph, inRegistry, outRegistry map[string]StorageType) *TabularLoop {
 	return &TabularLoop{
 		id:               id,
 		tabularStorageId: storageId,
 		state:            Pending,
 		maxLoop:          maxLoop,
 		graph:            graph,
-		storageRegistry:  storageRegistry,
+		inRegistry:       inRegistry,
+		outRegistry:      outRegistry,
 	}
 }
 
@@ -275,6 +293,23 @@ func (t *TabularLoop) runWithTabular(gCtx *GraphContext, tabular Tabular) error 
 		rState := NewRuntimeState(state)
 		storage := NewStorage()
 		childCtx = NewGraphWithLogContext(slog.With("sub_graph", t.id, "iteration", i), rState, storage)
+
+		for k, v := range t.inRegistry {
+			if v == TypeTabular {
+				t, err := gCtx.GetTabularStorage(k)
+				if err != nil {
+					return err
+				}
+				childCtx.SetTabularStorage(k, t)
+			} else {
+				t, err := gCtx.GetBlob(k)
+				if err != nil {
+					return err
+				}
+				childCtx.SetBlob(k, t)
+			}
+		}
+
 		g := t.graph.Copy()
 		g.RunWithContext(childCtx)
 		err := t.appendRegistry(gCtx, childCtx)
@@ -286,7 +321,7 @@ func (t *TabularLoop) runWithTabular(gCtx *GraphContext, tabular Tabular) error 
 }
 
 func (t *TabularLoop) appendRegistry(gCtx, childCtx *GraphContext) error {
-	for k, t := range t.storageRegistry {
+	for k, t := range t.outRegistry {
 		if t == TypeTabular {
 			tabular, err := childCtx.GetTabularStorage(k)
 			if err != nil {
@@ -294,7 +329,8 @@ func (t *TabularLoop) appendRegistry(gCtx, childCtx *GraphContext) error {
 			}
 			ptabular, err := gCtx.GetTabularStorage(k)
 			if err != nil {
-				return err
+				gCtx.SetTabularStorage(k, tabular)
+				continue
 			}
 			for _, c := range tabular.columns {
 				ptabular.AddOrSetColumn(c.name, c.GetAllData()...)

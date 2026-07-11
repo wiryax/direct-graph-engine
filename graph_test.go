@@ -60,7 +60,7 @@ type (
 		from,
 		to string
 		lOp    tokenType
-		pConst state
+		pConst constrain
 		tk     []token
 	}
 
@@ -97,7 +97,7 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vB",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 					},
 				},
 				log: nil,
@@ -156,7 +156,7 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vB",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 					},
 				},
 				log: nil,
@@ -215,7 +215,7 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vB",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk: []token{
 							{
 								id:    "isValidDate",
@@ -292,7 +292,7 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vB",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk: []token{
 							{
 								id:    "isValidDate",
@@ -375,19 +375,19 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vB",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vC",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					},
 				},
@@ -475,19 +475,19 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Fail,
+						pConst: OnFail,
 						tk:     nil,
 					}, {
 						from:   "vB",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vC",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Fail,
+						pConst: OnFail,
 						tk:     nil,
 					},
 				},
@@ -575,19 +575,19 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     []token{{"var1", ExpVariable}, {"var2", ExpVariable}, {"", ExpEqual}},
 					}, {
 						from:   "vB",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vC",
 						to:     "vD",
 						lOp:    ExpOr,
-						pConst: Fail,
+						pConst: OnFail,
 						tk:     nil,
 					},
 				},
@@ -687,25 +687,25 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vE",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vB",
 						to:     "vE",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vC",
 						to:     "vF",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vD",
 						to:     "vF",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					},
 				},
@@ -816,25 +816,25 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vE",
 						lOp:    ExpAnd,
-						pConst: Fail,
+						pConst: OnFail,
 						tk:     nil,
 					}, {
 						from:   "vB",
 						to:     "vE",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vC",
 						to:     "vF",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vD",
 						to:     "vF",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					},
 				},
@@ -945,25 +945,25 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vE",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vB",
 						to:     "vE",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vC",
 						to:     "vF",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					}, {
 						from:   "vD",
 						to:     "vF",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 						tk:     nil,
 					},
 				},
@@ -1065,12 +1065,12 @@ func TestGraphWorkflow(t *testing.T) {
 						from:   "vA",
 						to:     "vB",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 					}, {
 						from:   "vB",
 						to:     "vC",
 						lOp:    ExpAnd,
-						pConst: Success,
+						pConst: OnSuccess,
 					},
 				},
 				log: nil,
@@ -1172,7 +1172,7 @@ func TestGraphWorkflow(t *testing.T) {
 
 }
 
-func TestLoopTaskRegistry(t *testing.T) {
+func TestLoopTaskRegistry1(t *testing.T) {
 	expected := Tabular{
 		columns: []Column{
 			{
@@ -1218,7 +1218,7 @@ func TestLoopTaskRegistry(t *testing.T) {
 		tabularStorageId: "1",
 		state:            Pending,
 		maxLoop:          6,
-		storageRegistry: map[string]StorageType{
+		inRegistry: map[string]StorageType{
 			"1": TypeTabular,
 		},
 	}
@@ -1290,5 +1290,169 @@ func TestLoopTaskRegistry(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("unexpected result. want %v, got %v", expected, result)
+	}
+}
+
+func TestLoopTaskRegistry2(t *testing.T) {
+	expected := map[string]StorageItem{
+		"A": {
+			key:   "A",
+			sType: TypeTabular,
+			tabular: Tabular{
+				columns: []Column{
+					{
+						name: "A",
+						data: []Variable{
+							{
+								code: 0,
+								raw:  []byte("A"),
+							},
+						},
+					}, {
+						name: "B",
+						data: []Variable{
+							{
+								code: 0,
+								raw:  []byte("B"),
+							},
+						},
+					},
+				},
+			},
+		},
+		"2": {
+			key:   "2",
+			sType: TypeTabular,
+			tabular: Tabular{
+				columns: []Column{
+					{
+						name: "A",
+						data: []Variable{
+							{
+								code: 0,
+								raw:  []byte("A"),
+							},
+						},
+					}, {
+						name: "B",
+						data: []Variable{
+							{
+								code: 0,
+								raw:  []byte("B"),
+							},
+						},
+					},
+				},
+			},
+		},
+		"new 2": {
+			key:   "new 2",
+			sType: TypeTabular,
+			tabular: Tabular{
+				columns: []Column{
+					{
+						name: "A",
+						data: []Variable{
+							{
+								code: 0,
+								raw:  []byte("A"),
+							}, {
+								code: 0,
+								raw:  []byte("A"),
+							},
+						},
+					}, {
+						name: "B",
+						data: []Variable{
+							{
+								code: 0,
+								raw:  []byte("B"),
+							}, {
+								code: 0,
+								raw:  []byte("B"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	inRegistryTabular := Tabular{
+		columns: []Column{
+			{
+				name: "A",
+				data: []Variable{
+					{
+						code: 0,
+						raw:  []byte("A"),
+					},
+				},
+			}, {
+				name: "B",
+				data: []Variable{
+					{
+						code: 0,
+						raw:  []byte("B"),
+					},
+				},
+			},
+		},
+	}
+
+	loopTabular := Tabular{
+		columns: []Column{
+			{
+				name: "A",
+				data: []Variable{
+					{
+						code: 0,
+						raw:  []byte("A"),
+					},
+				},
+			}, {
+				name: "B",
+				data: []Variable{
+					{
+						code: 0,
+						raw:  []byte("B"),
+					},
+				},
+			},
+		},
+	}
+
+	g := NewGraph("test loop")
+	g.Add("A", newMockTask(func(gCtx *GraphContext) error {
+		tabular, err := gCtx.GetTabularStorage("2")
+		if err != nil {
+			return err
+		}
+
+		for _, ci := range tabular.columns {
+			tabular.AddOrSetColumn(ci.name, ci.GetAllData()...)
+		}
+
+		gCtx.SetTabularStorage("new 2", tabular)
+		return nil
+	}))
+
+	gCtx := NewGraphWithLogContext(slog.Default(), newRuntimeState(nil), NewStorage())
+	gCtx.SetTabularStorage("2", inRegistryTabular)
+	gCtx.SetTabularStorage("A", loopTabular)
+
+	tLoop := NewTabularLoop("test-loop-registry", "A", 3, g, map[string]StorageType{
+		"2": TypeTabular,
+	}, map[string]StorageType{
+		"new 2": TypeTabular,
+	})
+
+	err := tLoop.Execute(gCtx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(gCtx.storage.item, expected) {
+		t.Errorf("unexpected result, want %v, got %v", expected, gCtx.storage.item)
 	}
 }
