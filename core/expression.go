@@ -41,10 +41,6 @@ func ParseExpression(exp string) (*expression, error) {
 	return nil, nil
 }
 
-func createNewTk(id string, t tokenType) *token {
-	return &token{id, t}
-}
-
 type expression struct {
 	tokens,
 	stack []token
@@ -143,15 +139,18 @@ func evaluate(gCtx *GraphContext, queue []token) expressionState {
 				exp2 string
 			)
 
-			exp1, err := gCtx.GetVariable(t1.id)
+			var1, err := gCtx.GetVariable(t1.id)
 			if err != nil {
-				panic(err)
+				panic(fmt.Errorf("cannot find variable with key %s", t1.id))
 			}
 
-			exp2, err = gCtx.GetVariable(t2.id)
+			var2, err := gCtx.GetVariable(t2.id)
 			if err != nil {
-				panic(err)
+				panic(fmt.Errorf("cannot find variable with key %s", t1.id))
 			}
+
+			exp1 = var1.String()
+			exp2 = var2.String()
 
 			switch tk.eType {
 			case ExpEqual:
@@ -176,9 +175,9 @@ func evaluate(gCtx *GraphContext, queue []token) expressionState {
 }
 
 type RuntimeState struct {
-	state    map[string]*BasicVertex
+	state    map[string]vertex
 	variable map[string]string
-	vState   map[*BasicVertex]state
+	vState   map[vertex]TaskResult
 }
 
 func NewRuntimeState(variable map[string]string) *RuntimeState {
@@ -193,7 +192,7 @@ func (r *RuntimeState) GetVertexState(id string) tokenType {
 		return ExpEmptyToken
 	}
 
-	switch v.state {
+	switch v.State() {
 	case Success:
 		return ExpOnSuccess
 	case Pending:

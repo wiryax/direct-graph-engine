@@ -1,4 +1,4 @@
-module github.com/wiryax/direct-graph-engine
+module github.com/wiryax/dage
 
 go 1.23.4
 

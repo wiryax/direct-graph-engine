@@ -2,11 +2,13 @@ package csv
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
-	"strings"
+	"io"
+	"slices"
 
-	dge "github.com/wiryax/direct-graph-engine"
-	engine "github.com/wiryax/direct-graph-engine"
+	dge "github.com/wiryax/dage/core"
+	engine "github.com/wiryax/dage/core"
 )
 
 type Clause struct {
@@ -16,35 +18,25 @@ type Clause struct {
 }
 
 type CsvFilter struct {
-	storageId string
-	clauses   []Clause
+	connectorId string
+	clauses     []Clause
 }
 
-func NewCsvFilter(connectorId string, clauses ...Clause) *CsvFilter {
+func NewCsvFilter(columns []string, clauses ...Clause) *CsvFilter {
+	for c := range clauses {
+		i := slices.Index(columns, clauses[c].column)
+		clauses[c].index = i
+	}
+
 	return &CsvFilter{
-		clauses:   clauses,
-		storageId: connectorId,
+		clauses: clauses,
 	}
 }
 
-func (cf *CsvFilter) Execute(gCtx *engine.GraphContext) error {
-	t, err := gCtx.GetTabularStorage(cf.storageId)
-	if err != nil {
-		return err
-	}
-
-	for c := range cf.clauses {
-		i := t.GetColumnIndex(cf.clauses[c].column)
-		if i == -1 {
-			return fmt.Errorf("column with key %s not found", cf.clauses[c].column)
-		}
-		cf.clauses[c].index = i
-	}
-
-	fn := func(v []engine.Column) bool {
+func (cf *CsvFilter) TransformerTask(buffReader dge.ReadOnlyBuffer, buffWriter dge.WriteOnlyBuffer, gCtx *engine.GraphContext) error {
+	fn := func(v []dge.Variable) bool {
 		for _, c := range cf.clauses {
-			data, _ := v[c.index].GetFirst()
-			if string(data.GetRaw()) != c.value {
+			if v[c.index].String() != c.value {
 				return false
 			}
 		}
@@ -52,57 +44,92 @@ func (cf *CsvFilter) Execute(gCtx *engine.GraphContext) error {
 		return true
 	}
 
-	var (
-		tResult = t.CloneStructure()
-		// columns dge.Column
-	)
-	for ri := range t.CountRows() {
-		rows, err := t.GetRows(ri)
-		if err != nil {
-			return err
-		}
-
-		if fn(rows) {
-			for ri := range rows {
-				tResult.AddOrSetColumn(rows[ri].GetColumnName(), rows[ri].GetAllData()...)
+	for item := range buffReader.Read() {
+		if fn(item) {
+			if err := buffWriter.WriteBuff(item); err != nil {
+				return err
 			}
 		}
 	}
-	gCtx.SetTabularStorage(cf.storageId, tResult)
+
 	return nil
 }
 
 type MockCsvReader struct {
-	b,
-	storageId string
+	connId string
 }
 
-func NewMockCsvReader(storageId, content string) *MockCsvReader {
+func NewMockCsvReader(connId string) *MockCsvReader {
 	return &MockCsvReader{
-		storageId: storageId,
-		b:         content,
+		connId: connId,
 	}
 }
 
-func (cr *MockCsvReader) Execute(gCtx *engine.GraphContext) error {
-	csvReader := csv.NewReader(strings.NewReader(string(cr.b)))
-
-	records, err := csvReader.ReadAll()
+func (cr *MockCsvReader) ProducerTask(buffWriter dge.WriteOnlyBuffer, gCtx *engine.GraphContext) error {
+	conn, err := gCtx.GetConnection(cr.connId)
 	if err != nil {
 		return err
 	}
 
-	t := engine.MakeTabular()
-
-	for c := range records[0] {
-		var temp []dge.Variable
-		for d := range records[1:] {
-			temp = append(temp, dge.ParseVariable([]byte(records[d][c])))
-		}
-		t.AddOrSetColumn(records[0][c], temp...)
+	r, ok := conn.Acquire(nil).(*csv.Reader)
+	if !ok {
+		return fmt.Errorf("cannot cast connector")
 	}
 
-	gCtx.SetTabularStorage(cr.storageId, *t)
+	for {
+		row, err := r.Read()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+		var temp []dge.Variable
+		for _, c := range row {
+			temp = append(temp, dge.ParseVariable([]byte(c)))
+		}
+		buffWriter.WriteBuff(temp)
+	}
+
+	return nil
+}
+
+type MockCsvWriter struct {
+	connId string
+}
+
+func NewMockCsvWriter(connId string) *MockCsvWriter {
+	return &MockCsvWriter{
+		connId: connId,
+	}
+}
+
+func (cw *MockCsvWriter) ConsumerTask(buff dge.ReadOnlyBuffer, gCtx *dge.GraphContext) error {
+	conn, err := gCtx.GetConnection(cw.connId)
+	if err != nil {
+		return err
+	}
+
+	csvWriter, ok := conn.Acquire(nil).(*csv.Writer)
+	if !ok {
+		return fmt.Errorf("cannot casting connection")
+	}
+	ch := buff.Read()
+	for item := range ch {
+		if item == nil {
+			continue
+		}
+		var prow []string
+		for _, c := range item {
+			prow = append(prow, c.String())
+		}
+
+		if err := csvWriter.Write(prow); err != nil {
+			return err
+		}
+
+		csvWriter.Flush()
+	}
 
 	return nil
 }
