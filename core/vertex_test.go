@@ -14,11 +14,13 @@ func newAtomic64(v int64) *atomic.Int64 {
 }
 
 type mockBuffTask struct {
-	readBuff [][]Variable
-	dataLen  int
+	readBuff      [][]Variable
+	dataLen       int
+	consumerErrAt int
+	producerErrAt int
 }
 
-func (m *mockBuffTask) TransformerTask(buffReader ReadOnlyBuffer, buffWriter WriteOnlyBuffer, _ *GraphContext) error {
+func (m *mockBuffTask) TransformerTask(_ *GraphContext, buffReader ReadOnlyBuffer, buffWriter WriteOnlyBuffer) error {
 	var (
 		wg  sync.WaitGroup
 		err error
@@ -26,31 +28,40 @@ func (m *mockBuffTask) TransformerTask(buffReader ReadOnlyBuffer, buffWriter Wri
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err = errors.Join(m.ProducerTask(buffWriter, nil))
+		err = errors.Join(m.ProducerTask(nil, buffWriter))
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err = errors.Join(m.ConsumerTask(buffReader, nil))
+		err = errors.Join(m.ConsumerTask(nil, buffReader))
 	}()
 	wg.Wait()
 	return err
 }
 
-func (m *mockBuffTask) ConsumerTask(buff ReadOnlyBuffer, _ *GraphContext) error {
+func (m *mockBuffTask) ConsumerTask(_ *GraphContext, buff ReadOnlyBuffer) error {
 	var mu sync.Mutex
 	mu.Lock()
 	defer mu.Unlock()
 	ch := buff.Read()
+	i := 0
 	for item := range ch {
+		if m.consumerErrAt == i {
+			return mockErr
+		}
 		m.readBuff = append(m.readBuff, item)
+		i++
 	}
 	return nil
 }
 
-func (m *mockBuffTask) ProducerTask(buff WriteOnlyBuffer, _ *GraphContext) error {
+func (m *mockBuffTask) ProducerTask(_ *GraphContext, buff WriteOnlyBuffer) error {
+	i := 0
 	for range m.dataLen {
+		if m.producerErrAt == i {
+			return mockErr
+		}
 		if err := buff.WriteBuff([]Variable{
 			{
 				code: 0,
@@ -59,6 +70,7 @@ func (m *mockBuffTask) ProducerTask(buff WriteOnlyBuffer, _ *GraphContext) error
 		}); err != nil {
 			return err
 		}
+		i++
 	}
 	return nil
 }
@@ -79,7 +91,7 @@ func TestNotifyVertex(t *testing.T) {
 
 	assertEqual(t, int64(0), v.pendingEdge.Load(), "")
 	assertEqual(t, int64(1), v.failEdge.Load(), "")
-	assertEqual(t, Skipped100, status, "compare status")
+	assertEqual(t, Skip, status, "compare status")
 }
 
 func TestOverflowNotify(t *testing.T) {
@@ -110,7 +122,9 @@ func TestConsumerVertex(t *testing.T) {
 	)
 
 	mockTask := &mockBuffTask{
-		readBuff: make([][]Variable, 0, 8),
+		consumerErrAt: -1,
+		producerErrAt: -1,
+		readBuff:      make([][]Variable, 0, 8),
 	}
 
 	v := NewBufferConsumerVertex("mockTask", 5, mockTask)
@@ -163,7 +177,10 @@ func TestTransformerVertex(t *testing.T) {
 
 	buffReader.open()
 	buffWriter.open()
-	mock := &mockBuffTask{}
+	mock := &mockBuffTask{
+		consumerErrAt: -1,
+		producerErrAt: -1,
+	}
 
 	transformer := NewBufferTransformerTask("", 5, mock)
 	transformer.SetSenderBuffer(buffWriter)
@@ -202,7 +219,9 @@ func TestSingleProducerToSingleConsumer(t *testing.T) {
 	var (
 		wg   sync.WaitGroup
 		mock = &mockBuffTask{
-			dataLen: 100,
+			consumerErrAt: -1,
+			producerErrAt: -1,
+			dataLen:       100,
 		}
 	)
 
@@ -237,7 +256,9 @@ func TestMultipleProducerToSingleConsumer(t *testing.T) {
 	var (
 		wg   sync.WaitGroup
 		mock = &mockBuffTask{
-			dataLen: 100,
+			consumerErrAt: -1,
+			producerErrAt: -1,
+			dataLen:       100,
 		}
 		producer = 1
 	)
@@ -246,7 +267,9 @@ func TestMultipleProducerToSingleConsumer(t *testing.T) {
 
 	for range producer {
 		mockP := &mockBuffTask{
-			dataLen: 100,
+			consumerErrAt: -1,
+			producerErrAt: -1,
+			dataLen:       100,
 		}
 		producer := NewBufferProducer("producer", mockP)
 		producer.SetSenderBuffer(consumer.GetBuffer())
@@ -277,7 +300,9 @@ func TestSingleProducerToSingleConsumerToSingleTransformer(t *testing.T) {
 	var (
 		wg   sync.WaitGroup
 		mock = &mockBuffTask{
-			dataLen: 3,
+			consumerErrAt: -1,
+			producerErrAt: -1,
+			dataLen:       3,
 		}
 	)
 
@@ -314,7 +339,62 @@ func TestSingleProducerToSingleConsumerToSingleTransformer(t *testing.T) {
 
 	wg.Wait()
 
-	assertEqual(t, mock.dataLen*2, len(mock.readBuff), "")
+	assertEqual(t, mock.dataLen, len(mock.readBuff), "")
 	assertEqual(t, true, consumer.buff.closed, "")
 	assertEqual(t, true, transformer.buff.closed, "")
+}
+
+func TestTransformerTaskFail(t *testing.T) {
+	mockTransformer := &mockBuffTask{
+		dataLen:       100,
+		consumerErrAt: 9,
+		producerErrAt: 10,
+	}
+
+	mockProducer := &mockBuffTask{
+		dataLen:       100,
+		producerErrAt: 10,
+	}
+
+	mockConsumer := &mockBuffTask{
+		dataLen:       100,
+		consumerErrAt: 9,
+	}
+
+	producer := NewBufferProducer("", mockProducer)
+	transformer := NewBufferTransformerTask("", 10, mockTransformer)
+	consumer := NewBufferConsumerVertex("", 10, mockConsumer)
+
+	producer.SetSenderBuffer(transformer.GetBuffer())
+	transformer.SetSenderBuffer(consumer.GetBuffer())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		assertShouldNotErr(t, producer.preProcess(nil))
+		assertShouldErr(t, producer.process(nil), mockErr)
+		producer.postProcess()
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		assertShouldNotErr(t, consumer.preProcess(nil))
+		assertShouldErr(t, consumer.process(nil), mockErr)
+		consumer.postProcess()
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		assertShouldNotErr(t, transformer.preProcess(nil))
+		assertShouldErr(t, transformer.process(nil), mockErr)
+		transformer.postProcess()
+	}()
+
+	wg.Wait()
+
+	assertEqual(t, true, transformer.GetBuffer().(*BufferVariables).closed, "")
+	assertEqual(t, true, consumer.GetBuffer().(*BufferVariables).closed, "")
 }

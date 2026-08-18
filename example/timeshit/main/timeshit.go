@@ -1,42 +1,60 @@
 package main
 
 import (
+	"flag"
+	"os"
+	"time"
+
+	"github.com/wiryax/dage/connector/file"
 	dge "github.com/wiryax/dage/core"
 	"github.com/wiryax/dage/example/timeshit"
 )
 
-var (
-	email = ""
-	token = ""
-)
+func panicOnError(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
 
 func main() {
-	getAllIssueTask := dge.NewBufferProducer("getAllIssueTask", timeshit.NewIssuesTask(email, token))
-	getDetailIssueTask := dge.NewBufferTransformerTask("getDetailIssueTask", 100, timeshit.NewDetailIssueTask(email, token))
-	generateReportTask := dge.NewBufferConsumerVertex("generateReportTask", 100, timeshit.NewGenerateReport())
+	var (
+		email       = flag.String("email", "", "jira user email")
+		token       = flag.String("token", "", "jira user security token")
+		from        = flag.String("from", "", "report start")
+		to          = flag.String("to", "", "report end")
+		template    = flag.String("template", "", "HTML report template file")
+		destination = flag.String("destination", "", "HTML report result file")
+	)
+	flag.Parse()
+
+	sDate, err := time.Parse("2006-01-02", *from)
+	panicOnError(err)
+
+	eDate, err := time.Parse("2006-01-02", *to)
+	panicOnError(err)
+
+	getAllIssueTask := dge.NewBufferProducer("getAllIssueTask", timeshit.NewIssuesTask(*email, *token))
+	getDetailIssueTask := dge.NewBufferTransformerTask("getDetailIssueTask", 100, timeshit.NewDetailIssueTask(*email, *token))
+	generateReportTask := dge.NewBufferConsumerVertex("generateReportTask", 100, timeshit.NewGenerateReport("htmlTemplate", "result", sDate, eDate, nil))
 
 	e1, err := dge.NewEdge(dge.OnCompilation, getAllIssueTask, getDetailIssueTask)
-	if err != nil {
-		panic(err)
-	}
+	panicOnError(err)
 
 	e2, err := dge.NewEdge(dge.OnCompilation, getDetailIssueTask, generateReportTask)
-	if err != nil {
-		panic(err)
-	}
+	panicOnError(err)
 
-	graph := dge.NewGraph("timeshit")
+	graph := dge.NewGraph(*template)
 
-	if err := graph.Connect(e1); err != nil {
-		panic(err)
-	}
+	panicOnError(graph.Connect(e1))
+	panicOnError(graph.Connect(e2))
 
-	if err := graph.Connect(e2); err != nil {
-		panic(err)
-	}
+	htmlTemplate := file.NewHTMLTemplateConnector(*template)
+	result := file.NewFileConnector(*destination, os.O_CREATE|os.O_TRUNC, 0644)
 
 	runtime := dge.NewEngine(graph)
-	if err := runtime.Run(); err != nil {
-		panic(err)
-	}
+	runtime.SetConnection(map[string]dge.Connection{
+		"htmlTemplate": htmlTemplate,
+		"result":       result,
+	})
+	panicOnError(runtime.Run())
 }

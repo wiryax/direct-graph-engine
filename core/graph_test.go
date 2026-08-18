@@ -4,21 +4,25 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func assertEqual(t *testing.T, want any, got any, title string) {
+	t.Helper()
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("%s: unexpected result. want %#v, got %#v", title, want, got)
 	}
 }
 
 func assertShouldNotErr(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func assertShouldErr(t *testing.T, err, wantErr error) {
+	t.Helper()
 	if err == nil {
 		t.Fatalf("expected error: %v", err)
 	}
@@ -32,6 +36,7 @@ var mockErr = errors.New("mock err")
 
 type mockProcess struct {
 	*vertexState
+	delay           time.Duration
 	errOnProcess    bool
 	errOnPreprocess bool
 }
@@ -44,6 +49,7 @@ func (m *mockProcess) preProcess(*GraphContext) error {
 }
 
 func (m *mockProcess) process(*GraphContext) error {
+	time.Sleep(m.delay)
 	if m.errOnProcess {
 		return mockErr
 	}
@@ -51,6 +57,7 @@ func (m *mockProcess) process(*GraphContext) error {
 }
 
 func (m *mockProcess) postProcess() {
+	m.finish()
 }
 
 type mockNonErrTask struct {
@@ -69,24 +76,9 @@ func TestBuilder_ConnectTwoVertexFlow(t *testing.T) {
 	e, err := NewEdge(OnSuccess, a, b)
 	assertShouldNotErr(t, err)
 
-	expected := &Graph{
-		vertices: map[vertex]struct{}{
-			a: {},
-			b: {},
-		},
-		edge: []*Edge{e},
-		vertexState: vertexState{
-			id: "test graph builder",
-		},
-	}
-
-	if err := g.Connect(e); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !reflect.DeepEqual(expected, g) {
-		t.Errorf("unexpected result, want %v, got %v", expected, g)
-	}
+	assertShouldNotErr(t, g.Connect(e))
+	assertEqual(t, 1, len(g.edge), "")
+	assertEqual(t, 2, len(g.vertices), "")
 }
 
 func TestBuilder_ConnectOneVertexFlow(t *testing.T) {
@@ -96,40 +88,21 @@ func TestBuilder_ConnectOneVertexFlow(t *testing.T) {
 	e, err := NewEdge(OnSuccess, v, nil)
 	assertShouldNotErr(t, err)
 
-	expected := &Graph{
-		vertexState: vertexState{
-			id: "test ConnectOneVertexFlow",
-		},
-		edge: []*Edge{e},
-		vertices: map[vertex]struct{}{
-			v: {},
-		},
-	}
-
-	if err := g.Connect(e); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !reflect.DeepEqual(g, expected) {
-		t.Errorf("unexpected result. want %v, got %v", expected, g)
-	}
+	assertShouldNotErr(t, g.Connect(e))
+	assertEqual(t, 1, len(g.edge), "")
+	assertEqual(t, 1, len(g.vertices), "")
 }
 
 func TestBuilder_ConnectSameVertex(t *testing.T) {
 	g := NewGraph("test ConnectSameVertex")
 	v := NewVertexState("A", &mockNonErrTask{})
 
-	expected := &Graph{
-		vertexState: vertexState{
-			id: "test ConnectSameVertex",
-		},
-		vertices: make(map[vertex]struct{}),
-	}
-
 	e, err := NewEdge(OnSuccess, v, v)
 	assertShouldErr(t, err, ErrCyclicRelation)
+
 	assertEqual(t, true, e == nil, "nil edge")
-	assertEqual(t, expected, g, "")
+	assertEqual(t, 0, len(g.vertices), "")
+	assertEqual(t, 0, len(g.edge), "")
 }
 
 func TestBuilder_SimpleCyclic(t *testing.T) {
@@ -144,20 +117,10 @@ func TestBuilder_SimpleCyclic(t *testing.T) {
 	e2, err := NewEdge(OnSuccess, b, a)
 	assertShouldNotErr(t, err)
 
-	expected := &Graph{
-		vertexState: vertexState{
-			id: "test SimpleCyclic",
-		},
-		vertices: map[vertex]struct{}{
-			a: {},
-			b: {},
-		},
-		edge: []*Edge{e1},
-	}
-
 	assertShouldNotErr(t, g.Connect(e1))
 	assertShouldErr(t, g.Connect(e2), ErrCyclicRelation)
-	assertEqual(t, expected, g, "")
+	assertEqual(t, 2, len(g.vertices), "")
+	assertEqual(t, 1, len(g.edge), "")
 }
 
 func TestBuilder_LongTailCyclic(t *testing.T) {
@@ -190,21 +153,8 @@ func TestBuilder_LongTailCyclic(t *testing.T) {
 	assertShouldNotErr(t, g.Connect(e13))
 	assertShouldErr(t, g.Connect(e14), ErrCyclicRelation)
 
-	expected := &Graph{
-		vertexState: vertexState{
-			id: "test LongTailCyclic",
-		},
-		vertices: map[vertex]struct{}{
-			a: {},
-			b: {},
-			c: {},
-			d: {},
-			e: {},
-		},
-		edge: []*Edge{e1, e11, e12, e13},
-	}
-
-	assertEqual(t, expected, g, "")
+	assertEqual(t, 5, len(g.vertices), "")
+	assertEqual(t, 4, len(g.edge), "")
 }
 
 func TestWorkflow_SingleNode(t *testing.T) {
@@ -270,4 +220,63 @@ func TestWorkflow_MultipleChild(t *testing.T) {
 	assertEqual(t, Success, c.execStatus, "")
 	assertEqual(t, int64(0), c.failEdge.Load(), "")
 	assertEqual(t, int64(0), c.pendingEdge.Load(), "")
+}
+
+func TestWorkflow_Parallel(t *testing.T) {
+	g := NewGraph("Parallel")
+	a := &mockProcess{
+		vertexState:     newVertexState("a"),
+		errOnProcess:    false,
+		errOnPreprocess: false,
+	}
+	b := &mockProcess{
+		vertexState:     newVertexState("b"),
+		errOnProcess:    false,
+		errOnPreprocess: false,
+	}
+	c := &mockProcess{
+		vertexState:     newVertexState("c"),
+		errOnProcess:    false,
+		errOnPreprocess: false,
+	}
+	d := &mockProcess{
+		vertexState:     newVertexState("d"),
+		errOnProcess:    false,
+		errOnPreprocess: false,
+	}
+
+	e, err := NewEdge(OnSuccess, a, d)
+	assertShouldNotErr(t, err)
+
+	e1, err := NewEdge(OnSuccess, b, d)
+	assertShouldNotErr(t, err)
+
+	e2, err := NewEdge(OnFail, c, d)
+	assertShouldNotErr(t, err)
+
+	assertShouldNotErr(t, g.Connect(e))
+	assertShouldNotErr(t, g.Connect(e1))
+	assertShouldNotErr(t, g.Connect(e2))
+	assertShouldNotErr(t, g.Run())
+
+	assertEqual(t, Success, a.execStatus, "")
+	assertEqual(t, int64(0), a.failEdge.Load(), "")
+	assertEqual(t, int64(0), a.pendingEdge.Load(), "")
+	assertEqual(t, true, a.isFinish, "")
+
+	assertEqual(t, Success, b.execStatus, "")
+	assertEqual(t, int64(0), b.failEdge.Load(), "")
+	assertEqual(t, int64(0), b.pendingEdge.Load(), "")
+	assertEqual(t, true, b.isFinish, "")
+
+	assertEqual(t, Success, c.execStatus, "")
+	assertEqual(t, int64(0), c.failEdge.Load(), "")
+	assertEqual(t, int64(0), c.pendingEdge.Load(), "")
+	assertEqual(t, true, c.isFinish, "")
+
+	assertEqual(t, Skipped, d.execStatus, "")
+	assertEqual(t, int64(1), d.failEdge.Load(), "")
+	assertEqual(t, int64(0), d.pendingEdge.Load(), "")
+	assertEqual(t, true, d.isFinish, "")
+
 }

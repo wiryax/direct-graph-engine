@@ -10,9 +10,9 @@ type TaskResult int
 
 const (
 	Pending TaskResult = iota
+	Running
 	Success
 	Fail
-	Running
 	Skipped
 )
 
@@ -21,7 +21,7 @@ type evalResult int
 const (
 	Ready evalResult = iota
 	Pending100
-	Skipped100
+	Skip
 )
 
 type vertex interface {
@@ -121,7 +121,7 @@ func (v *vertexState) validate() evalResult {
 		return Pending100
 	}
 
-	return Skipped100
+	return Skip
 }
 
 func (v *vertexState) finish() {
@@ -175,7 +175,7 @@ type ReadOnlyBufferVertex interface {
 }
 
 type BufferProducerTask interface {
-	ProducerTask(WriteOnlyBuffer, *GraphContext) error
+	ProducerTask(*GraphContext, WriteOnlyBuffer) error
 }
 
 type BufferProducerVertex struct {
@@ -201,7 +201,7 @@ func (bp *BufferProducerVertex) preProcess(gCtx *GraphContext) error {
 }
 
 func (bp *BufferProducerVertex) process(gCtx *GraphContext) error {
-	return bp.task.ProducerTask(bp.outBuff, gCtx)
+	return bp.task.ProducerTask(gCtx, bp.outBuff)
 }
 
 func (bp *BufferProducerVertex) postProcess() {
@@ -210,7 +210,7 @@ func (bp *BufferProducerVertex) postProcess() {
 }
 
 type BufferConsumerTask interface {
-	ConsumerTask(ReadOnlyBuffer, *GraphContext) error
+	ConsumerTask(*GraphContext, ReadOnlyBuffer) error
 }
 
 type BufferConsumerVertex struct {
@@ -241,7 +241,7 @@ func (bc *BufferConsumerVertex) preProcess(gCtx *GraphContext) error {
 }
 
 func (bc *BufferConsumerVertex) process(gCtx *GraphContext) error {
-	return bc.task.ConsumerTask(bc.buff, gCtx)
+	return bc.task.ConsumerTask(gCtx, bc.buff)
 }
 
 func (bc *BufferConsumerVertex) postProcess() {
@@ -249,7 +249,7 @@ func (bc *BufferConsumerVertex) postProcess() {
 }
 
 type BufferTransformerTask interface {
-	TransformerTask(ReadOnlyBuffer, WriteOnlyBuffer, *GraphContext) error
+	TransformerTask(*GraphContext, ReadOnlyBuffer, WriteOnlyBuffer) error
 }
 
 type BufferTransformerVertex struct {
@@ -286,7 +286,7 @@ func (bt *BufferTransformerVertex) preProcess(gCtx *GraphContext) error {
 }
 
 func (bt *BufferTransformerVertex) process(gCtx *GraphContext) error {
-	return bt.task.TransformerTask(bt.buff, bt.outBuff, gCtx)
+	return bt.task.TransformerTask(gCtx, bt.buff, bt.outBuff)
 }
 
 func (bt *BufferTransformerVertex) postProcess() {

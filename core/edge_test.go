@@ -13,7 +13,7 @@ func TestNotifyNoChildEdge(t *testing.T) {
 	mock.finish()
 	v := e.EvaluateConstrain(nil)
 
-	assertEqual(t, nil, v, "")
+	assertEqual(t, Ready, v, "")
 }
 
 func TestNotifyEdge(t *testing.T) {
@@ -32,5 +32,5 @@ func TestNotifyEdge(t *testing.T) {
 
 	v := e.EvaluateConstrain(nil)
 
-	assertEqual(t, mock2, v, "")
+	assertEqual(t, Ready, v, "")
 }

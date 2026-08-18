@@ -16,14 +16,14 @@ type GraphContext struct {
 	Log      *slog.Logger
 	variable map[string]Variable
 	conn     map[string]Connection
-	ctx      context.Context
+	context.Context
 }
 
 func NewGraphContext(ctx context.Context, gLog *slog.Logger, conn map[string]Connection) *GraphContext {
 	gCtx := &GraphContext{
-		Log:  gLog,
-		conn: conn,
-		ctx:  ctx,
+		Log:     gLog,
+		conn:    conn,
+		Context: ctx,
 	}
 	return gCtx
 }

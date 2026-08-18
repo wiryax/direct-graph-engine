@@ -2,10 +2,14 @@ package timeshit
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
-	"strings"
+	"os"
+	"slices"
+	"time"
 
 	dge "github.com/wiryax/dage/core"
 )
@@ -22,7 +26,7 @@ func NewIssuesTask(email, token string) *IssuesTask {
 	}
 }
 
-func (t *IssuesTask) ProducerTask(buff dge.WriteOnlyBuffer, gCtx *dge.GraphContext) error {
+func (t *IssuesTask) ProducerTask(gCtx *dge.GraphContext, buff dge.WriteOnlyBuffer) error {
 	body := []byte(`{
     "jql":"assignee = currentUser() AND status CHANGED TO (\"To do\", \"In progress\", \"Done\") DURING (\"2026-07-05\", \"2026-08-04\") ORDER BY updated DESC",
     "maxResults": 50,
@@ -82,7 +86,7 @@ func NewDetailIssueTask(email, token string) *DetailIssueTask {
 	}
 }
 
-func (d *DetailIssueTask) TransformerTask(buffReader dge.ReadOnlyBuffer, buffWriter dge.WriteOnlyBuffer, gCtx *dge.GraphContext) error {
+func (d *DetailIssueTask) TransformerTask(gCtx *dge.GraphContext, buffReader dge.ReadOnlyBuffer, buffWriter dge.WriteOnlyBuffer) error {
 	ch := buffReader.Read()
 	for data := range ch {
 		if len(data) != 3 {
@@ -142,21 +146,50 @@ func (*DetailIssueTask) parseResponse(resp *http.Response, task Task, buffWriter
 }
 
 type GenerateReport struct {
-	exceptionalDate map[string]struct{}
+	exceptionalDate      map[string]struct{}
+	bucket               map[string][]string
+	templateConnector    string
+	destinationConnector string
 }
 
-func NewGenerateReport(exceptionalDate ...string) *GenerateReport {
+func NewGenerateReport(templateId, destinationId string, from, to time.Time, additionalTask map[string][]string, exceptionalDate ...string) *GenerateReport {
 	gr := &GenerateReport{
-		exceptionalDate: make(map[string]struct{}),
+		exceptionalDate:      make(map[string]struct{}),
+		bucket:               make(map[string][]string),
+		templateConnector:    templateId,
+		destinationConnector: destinationId,
 	}
 	for _, e := range exceptionalDate {
 		gr.exceptionalDate[e] = struct{}{}
 	}
+
+	for ; from.Before(to); from = from.AddDate(0, 0, 1) {
+		date := from.Format("01-02-2006")
+		bucket := gr.bucket[date]
+		if additionalTask != nil {
+			if addTask, ok := additionalTask[date]; ok {
+				bucket = append(bucket, addTask...)
+			} else {
+				bucket = nil
+			}
+		}
+		gr.bucket[date] = bucket
+	}
+
 	return gr
 }
 
-func (g *GenerateReport) ConsumerTask(buff dge.ReadOnlyBuffer, gCtx *dge.GraphContext) error {
-	result := make(map[string][]string)
+func (g *GenerateReport) ConsumerTask(gCtx *dge.GraphContext, buff dge.ReadOnlyBuffer) error {
+	templateConn, err := gCtx.GetConnection(g.templateConnector)
+	if err != nil {
+		return err
+	}
+
+	resultConn, err := gCtx.GetConnection(g.destinationConnector)
+	if err != nil {
+		return err
+	}
+
 	for data := range buff.Read() {
 		if len(data) != 2 {
 			return fmt.Errorf("expected 2 cols got %d: %v", len(data), data)
@@ -171,12 +204,42 @@ func (g *GenerateReport) ConsumerTask(buff dge.ReadOnlyBuffer, gCtx *dge.GraphCo
 			continue
 		}
 
-		result[date] = append(result[date], description)
+		if _, ok := g.bucket[date]; ok {
+			g.bucket[date] = append(g.bucket[date], description)
+		}
 	}
 
-	for k, v := range result {
-		fmt.Printf("%s: %s\n", k, strings.Join(v, "\n"))
+	type Task struct {
+		Date         string
+		Descriptions []string
 	}
 
-	return nil
+	var tasks []Task
+
+	for k, v := range g.bucket {
+		tasks = append(tasks, Task{
+			Date:         k,
+			Descriptions: v,
+		})
+	}
+
+	slices.SortFunc(tasks, func(a, b Task) int {
+		aDate, _ := time.Parse("01-02-2006", a.Date)
+		bDate, _ := time.Parse("01-02-2006", b.Date)
+		return aDate.Compare(bDate)
+	})
+
+	template, ok := templateConn.Acquire(nil).(*template.Template)
+	if !ok {
+		return errors.New("fail cast connector")
+	}
+
+	reportResult, ok := resultConn.Acquire(nil).(*os.File)
+	if !ok {
+		return errors.New("fail cast connector")
+	}
+
+	return template.Execute(reportResult, map[string]any{
+		"Tasks": tasks,
+	})
 }

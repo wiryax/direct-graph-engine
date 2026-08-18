@@ -79,43 +79,36 @@ func (e *Edge) wired(*GraphContext) error {
 	return nil
 }
 
-func (e *Edge) EvaluateConstrain(gCtx *GraphContext) vertex {
+func (e *Edge) EvaluateConstrain(gCtx *GraphContext) evalResult {
 	if e.child == nil {
-		return nil
+		return Ready
 	}
-
 	if e.pConst == OnCompilation {
 		e.child.notify(Compilation100)
-		if e.child.validate() == Ready {
-			return e.child
-		}
-		return nil
+		return Ready
 	}
 
-	<-e.parent.done()
-	var status evaluateStatus
-	eval := evaluate(gCtx, e.exp.tokens)
-	if e.parent.State() == Running {
-		status = Fail100
-	} else if e.op == OpAnd {
-		if ((e.parent.State() == Success && e.pConst == OnSuccess) || (e.parent.State() == Fail && e.pConst == OnFail)) && eval == True {
-			status = Success100
-		} else {
-			status = Fail100
-		}
+	select {
+	case <-e.parent.done():
+		// case <-gCtx.Done():
+		// return Skip
+	}
 
+	var (
+		status    evaluateStatus
+		eval      = evaluate(gCtx, e.exp.tokens)
+		constrain = (e.parent.State() == Success && e.pConst == OnSuccess) || (e.parent.State() == Fail && e.pConst == OnFail)
+	)
+
+	if e.op == OpAnd && constrain && eval == True {
+		status = Success100
+
+	} else if e.op == OpOr && (constrain || eval == True) {
+		status = Success100
 	} else {
-		if ((e.parent.State() == Success && e.pConst == OnSuccess) || (e.parent.State() == Fail && e.pConst == OnFail)) || eval == True {
-			status = Success100
-		} else {
-			status = Fail100
-		}
-
+		status = Fail100
 	}
 
 	e.child.notify(status)
-	if e.child.validate() == Ready {
-		return e.child
-	}
-	return nil
+	return e.child.validate()
 }

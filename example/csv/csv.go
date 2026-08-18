@@ -33,7 +33,7 @@ func NewCsvFilter(columns []string, clauses ...Clause) *CsvFilter {
 	}
 }
 
-func (cf *CsvFilter) TransformerTask(buffReader dge.ReadOnlyBuffer, buffWriter dge.WriteOnlyBuffer, gCtx *engine.GraphContext) error {
+func (cf *CsvFilter) TransformerTask(gCtx *engine.GraphContext, buffReader dge.ReadOnlyBuffer, buffWriter dge.WriteOnlyBuffer) error {
 	fn := func(v []dge.Variable) bool {
 		for _, c := range cf.clauses {
 			if v[c.index].String() != c.value {
@@ -65,7 +65,7 @@ func NewMockCsvReader(connId string) *MockCsvReader {
 	}
 }
 
-func (cr *MockCsvReader) ProducerTask(buffWriter dge.WriteOnlyBuffer, gCtx *engine.GraphContext) error {
+func (cr *MockCsvReader) ProducerTask(gCtx *engine.GraphContext, buffWriter dge.WriteOnlyBuffer) error {
 	conn, err := gCtx.GetConnection(cr.connId)
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func NewMockCsvWriter(connId string) *MockCsvWriter {
 	}
 }
 
-func (cw *MockCsvWriter) ConsumerTask(buff dge.ReadOnlyBuffer, gCtx *dge.GraphContext) error {
+func (cw *MockCsvWriter) ConsumerTask(gCtx *dge.GraphContext, buff dge.ReadOnlyBuffer) error {
 	conn, err := gCtx.GetConnection(cw.connId)
 	if err != nil {
 		return err

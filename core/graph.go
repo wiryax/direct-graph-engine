@@ -75,8 +75,9 @@ func (g *Graph) process(gCtx *GraphContext) error {
 				v.postProcess()
 				g.donePool <- v
 			}()
+		case v := <-g.donePool:
+			v.postProcess()
 			g.getReadyVertex(gCtx, v)
-		case <-g.donePool:
 			counter++
 		}
 	}
@@ -116,11 +117,17 @@ func (e *Graph) getRoot() []vertex {
 }
 
 func (e *Graph) getReadyVertex(gCtx *GraphContext, v vertex) {
-	for _, child := range v.Child() {
+	for _, edge := range v.Child() {
 		go func() {
-			vChild := child.EvaluateConstrain(gCtx)
-			if vChild != nil {
-				e.vertexPool <- vChild
+			if edge.child != nil {
+				evalResult := edge.EvaluateConstrain(gCtx)
+				switch evalResult {
+				case Ready:
+					e.vertexPool <- edge.child
+				case Skip:
+					edge.child.setExecutionStatus(Skipped)
+					e.donePool <- edge.child
+				}
 			}
 		}()
 	}
